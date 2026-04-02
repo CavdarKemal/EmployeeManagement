@@ -17,7 +17,7 @@ FROM build AS test
 CMD ["mvn", "test", "-B"]
 
 # ── Stage 3: Development ────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre AS development
+FROM eclipse-temurin:25-jre AS development
 WORKDIR /app
 COPY --from=build /app/target/employeemanagement-backend-1.0.0.jar app.jar
 
@@ -27,7 +27,7 @@ EXPOSE 8080 5005
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
 
 # ── Stage 4: Production ─────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine AS production
+FROM eclipse-temurin:25-jre-alpine AS production
 
 # Sicherheit: kein Root
 RUN addgroup -S employeemanagement && adduser -S employeemanagement -G employeemanagement
