@@ -8,7 +8,6 @@ import org.mapstruct.*;
 public interface HardwareMapper {
 
     @Mapping(target = "status", expression = "java(entity.getStatus() != null ? entity.getStatus().name() : null)")
-    @Mapping(target = "loans", ignore = true)
     HardwareDTO toDTO(Hardware entity);
 
     @Mapping(target = "id", ignore = true)

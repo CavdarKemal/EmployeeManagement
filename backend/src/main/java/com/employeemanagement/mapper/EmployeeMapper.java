@@ -7,8 +7,6 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring")
 public interface EmployeeMapper {
 
-    @Mapping(target = "loans", ignore = true)
-    @Mapping(target = "softwareAssignments", ignore = true)
     EmployeeDTO toDTO(Employee entity);
 
     @Mapping(target = "id", ignore = true)
