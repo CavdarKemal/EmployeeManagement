@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Abhängigkeiten cachen
 COPY package*.json ./
-RUN npm ci --frozen-lockfile
+RUN npm install
 
 # Quellcode kopieren
 COPY . .
