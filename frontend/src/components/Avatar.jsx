@@ -7,16 +7,18 @@ const Avatar = ({ name, size = 40 }) => {
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
-        background: T.primaryLight + "33",
+        borderRadius: "50%",
+        background: "rgba(99,102,241,0.2)",
+        border: "1px solid rgba(99,102,241,0.4)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontSize: size * 0.35,
-        fontWeight: 700,
-        color: T.primary,
+        fontWeight: 600,
+        color: "#a5b4fc",
+        fontFamily: T.fontHeading,
         flexShrink: 0,
-        border: `2px solid ${T.primaryLight}55`,
+        letterSpacing: "0.5px",
       }}
     >
       {initials}

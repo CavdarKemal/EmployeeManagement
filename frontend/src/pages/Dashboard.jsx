@@ -19,6 +19,13 @@ const SOFTWARE = [
   { id: 3, name: "Figma Business",             vendor: "Figma",     version: "Web",    category: "DESIGN",       licenseType: "SUBSCRIPTION", totalLicenses: 10, usedLicenses: 7,  costPerLicense: 45.00, renewalDate: "2025-09-01" },
 ];
 
+const KPI_COLORS = {
+  employees: { accent: "#6366f1", bg: "rgba(99,102,241,0.12)",  icon: "👥" },
+  available: { accent: "#10b981", bg: "rgba(16,185,129,0.12)",  icon: "✅" },
+  loaned:    { accent: "#f59e0b", bg: "rgba(245,158,11,0.12)",  icon: "📤" },
+  licenses:  { accent: "#8b5cf6", bg: "rgba(139,92,246,0.12)",  icon: "🔑" },
+};
+
 function Dashboard() {
   const active    = EMPLOYEES.filter((e) => e.active).length;
   const available = HARDWARE.filter((h) => h.status === "AVAILABLE").length;
@@ -27,10 +34,10 @@ function Dashboard() {
   const usedLic   = SOFTWARE.reduce((a, s) => a + s.usedLicenses, 0);
 
   const stats = [
-    { icon: "👥", label: "Aktive Mitarbeiter",    value: active,              color: T.primary },
-    { icon: "✅", label: "Hardware verfügbar",     value: available,           color: T.success },
-    { icon: "📤", label: "Hardware ausgeliehen",   value: loaned,              color: T.warning },
-    { icon: "🔑", label: "Lizenzen in Nutzung",   value: `${usedLic}/${totalLic}`, color: "#8b5cf6" },
+    { key: "employees", label: "Aktive Mitarbeiter",  value: active,                    ...KPI_COLORS.employees },
+    { key: "available", label: "Hardware verfügbar",  value: available,                 ...KPI_COLORS.available },
+    { key: "loaned",    label: "Hardware ausgeliehen", value: loaned,                   ...KPI_COLORS.loaned    },
+    { key: "licenses",  label: "Lizenzen in Nutzung", value: `${usedLic}/${totalLic}`,  ...KPI_COLORS.licenses  },
   ];
 
   const deptCounts = EMPLOYEES.reduce(
@@ -39,68 +46,158 @@ function Dashboard() {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* KPI cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         {stats.map((s) => (
-          <Card key={s.label} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Card key={s.key} style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div
               style={{
-                width: 48, height: 48, borderRadius: 12,
-                background: s.color + "1a",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 22, flexShrink: 0,
+                width: 48,
+                height: 48,
+                borderRadius: "10px",
+                background: s.bg,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 22,
+                flexShrink: 0,
               }}
             >
               {s.icon}
             </div>
             <div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: T.text, lineHeight: 1.1 }}>{s.value}</div>
-              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{s.label}</div>
+              <div
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: "#f1f5f9",
+                  fontFamily: "'Sora', sans-serif",
+                  lineHeight: 1,
+                }}
+              >
+                {s.value}
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "#64748b",
+                  marginTop: 4,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                {s.label}
+              </div>
             </div>
           </Card>
         ))}
       </div>
 
+      {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+
+        {/* Department bars */}
         <Card>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>👥 Mitarbeiter nach Abteilung</div>
-          {Object.entries(deptCounts).map(([dept, count]) => (
-            <div key={dept} style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                <span style={{ color: T.text }}>{dept}</span>
-                <span style={{ fontWeight: 700 }}>{count}</span>
-              </div>
-              <div style={{ height: 6, background: T.border, borderRadius: 3 }}>
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: "#f1f5f9",
+                fontFamily: "'Sora', sans-serif",
+              }}
+            >
+              Mitarbeiter nach Abteilung
+            </div>
+            <div style={{ fontSize: 12, color: "#475569", marginTop: 2, fontFamily: "'DM Sans', sans-serif" }}>
+              Verteilung nach Organisationseinheit
+            </div>
+          </div>
+          {Object.entries(deptCounts).map(([dept, count]) => {
+            const pct = Math.round((count / EMPLOYEES.length) * 100);
+            return (
+              <div key={dept} style={{ marginBottom: 12 }}>
                 <div
                   style={{
-                    height: "100%",
-                    width: `${(count / EMPLOYEES.length) * 100}%`,
-                    background: DEPT[dept] || T.primary,
-                    borderRadius: 3,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 13,
+                    marginBottom: 6,
+                    fontFamily: "'DM Sans', sans-serif",
                   }}
-                />
-              </div>
-            </div>
-          ))}
-        </Card>
-
-        <Card>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>🔑 Lizenzauslastung</div>
-          {SOFTWARE.map((sw) => {
-            const pct = Math.round((sw.usedLicenses / sw.totalLicenses) * 100);
-            return (
-              <div key={sw.id} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: T.text, fontWeight: 500 }}>{sw.name}</span>
-                  <span style={{ color: pct >= 85 ? T.danger : T.textMuted, fontWeight: 600 }}>{pct}%</span>
+                >
+                  <span style={{ color: "#f1f5f9" }}>{dept}</span>
+                  <span style={{ color: "#94a3b8", fontWeight: 500 }}>{pct}%</span>
                 </div>
-                <div style={{ height: 5, background: T.border, borderRadius: 3 }}>
+                <div style={{ height: 8, background: "#334155", borderRadius: "4px" }}>
                   <div
                     style={{
                       height: "100%",
                       width: `${pct}%`,
-                      background: pct >= 85 ? T.danger : T.primary,
-                      borderRadius: 3,
+                      background: DEPT[dept] || "#6366f1",
+                      borderRadius: "4px",
+                      transition: "width 300ms ease",
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+
+        {/* License bars */}
+        <Card>
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: "#f1f5f9",
+                fontFamily: "'Sora', sans-serif",
+              }}
+            >
+              Lizenzauslastung
+            </div>
+            <div style={{ fontSize: 12, color: "#475569", marginTop: 2, fontFamily: "'DM Sans', sans-serif" }}>
+              Aktive Lizenzen im Überblick
+            </div>
+          </div>
+          {SOFTWARE.map((sw) => {
+            const pct = Math.round((sw.usedLicenses / sw.totalLicenses) * 100);
+            const high = pct >= 85;
+            const barColor = high ? "#f59e0b" : "#6366f1";
+            return (
+              <div key={sw.id} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 12,
+                    marginBottom: 6,
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  <span style={{ color: "#f1f5f9", fontWeight: 500 }}>{sw.name}</span>
+                  <span
+                    style={{
+                      color: high ? "#f59e0b" : "#94a3b8",
+                      fontWeight: 600,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 11,
+                    }}
+                  >
+                    {sw.usedLicenses}/{sw.totalLicenses}
+                  </span>
+                </div>
+                <div style={{ height: 8, background: "#334155", borderRadius: "4px" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${pct}%`,
+                      background: barColor,
+                      borderRadius: "4px",
+                      transition: "width 300ms ease",
                     }}
                   />
                 </div>

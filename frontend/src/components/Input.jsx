@@ -1,33 +1,49 @@
-import { T } from "./tokens.js";
+import { useState } from "react";
 
-const Input = ({ label, value, onChange, type = "text", placeholder, required, error, hint }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-    {label && (
-      <label style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
-        {label}{required && " *"}
-      </label>
-    )}
-    <input
-      type={type}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      required={required}
-      style={{
-        padding: "9px 12px",
-        borderRadius: 8,
-        border: `1.5px solid ${error ? T.danger : T.border}`,
-        fontSize: 13,
-        color: T.text,
-        outline: "none",
-        background: T.surface,
-        boxSizing: "border-box",
-        width: "100%",
-      }}
-    />
-    {hint  && <span style={{ fontSize: 11, color: T.textMuted }}>{hint}</span>}
-    {error && <span style={{ fontSize: 11, color: T.danger }}>{error}</span>}
-  </div>
-);
+const Input = ({ label, value, onChange, type = "text", placeholder, required, error, hint }) => {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      {label && (
+        <label
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            color: "#94a3b8",
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          {label}{required && " *"}
+        </label>
+      )}
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          padding: "10px 14px",
+          borderRadius: "8px",
+          border: `1px solid ${error ? "#ef4444" : focused ? "#6366f1" : "#334155"}`,
+          fontSize: 13,
+          color: "#f1f5f9",
+          outline: "none",
+          background: "#0f172a",
+          boxSizing: "border-box",
+          width: "100%",
+          fontFamily: "'DM Sans', sans-serif",
+          boxShadow: focused ? "0 0 0 3px rgba(99,102,241,0.15)" : "none",
+          transition: "border-color 150ms ease, box-shadow 150ms ease",
+        }}
+      />
+      {hint  && <span style={{ fontSize: 11, color: "#94a3b8" }}>{hint}</span>}
+      {error && <span style={{ fontSize: 11, color: "#ef4444" }}>{error}</span>}
+    </div>
+  );
+};
 
 export default Input;

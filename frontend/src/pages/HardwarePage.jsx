@@ -23,6 +23,14 @@ const INITIAL_LOANS = [
   { id: 1, hardwareId: 2, employeeId: 1, loanDate: "2024-11-01", returnedAt: null },
 ];
 
+const FILTER_LABELS = {
+  ALL:         "Alle",
+  AVAILABLE:   "Verfügbar",
+  LOANED:      "Ausgeliehen",
+  MAINTENANCE: "Wartung",
+  RETIRED:     "Ausgemustert",
+};
+
 // ── Loan Dialog ──────────────────────────────────────────────
 function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
   const activeLoan = loans.find((l) => l.hardwareId === hardware.id && !l.returnedAt);
@@ -46,31 +54,65 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
     onClose();
   };
 
+  const st = STATUS[hardware.status] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)", label: hardware.status };
+
   return (
     <Modal title={`${HW_EMOJI[hardware.category] || "🖥️"} ${hardware.name}`} onClose={onClose}>
-      <div style={{ marginBottom: 16, padding: "12px 14px", background: T.bg, borderRadius: 10 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+
+      {/* Device info */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "12px 14px",
+          background: "#0f172a",
+          borderRadius: "8px",
+          border: "1px solid #334155",
+        }}
+      >
+        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{hardware.name}</div>
-            <div style={{ fontSize: 12, color: T.textMuted }}>{hardware.assetTag} · {hardware.manufacturer} {hardware.model}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
+              {hardware.name}
+            </div>
+            <div style={{ fontSize: 11, color: "#475569", fontFamily: "'DM Sans', sans-serif", marginTop: 3 }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "#a5b4fc" }}>{hardware.assetTag}</span>
+              {" · "}{hardware.manufacturer} {hardware.model}
+            </div>
           </div>
-          <Badge
-            label={STATUS[hardware.status]?.label || hardware.status}
-            color={STATUS[hardware.status]?.color}
-            bg={STATUS[hardware.status]?.bg}
-          />
+          <Badge label={st.label} color={st.color} bg={st.bg} sm />
         </div>
       </div>
 
       {activeLoan && loanee && (
-        <div style={{ marginBottom: 14, padding: "10px 14px", background: "#fef3c7", borderRadius: 9, border: "1px solid #fcd34d", fontSize: 13, color: "#92400e" }}>
-          ⚠️ Ausgeliehen an <strong>{loanee.firstName} {loanee.lastName}</strong> seit {activeLoan.loanDate}
+        <div
+          style={{
+            marginBottom: 14,
+            padding: "10px 14px",
+            background: "rgba(245,158,11,0.08)",
+            borderRadius: "8px",
+            border: "1px solid rgba(245,158,11,0.3)",
+            fontSize: 13,
+            color: "#f59e0b",
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          ⚠️ Ausgeliehen an{" "}
+          <strong style={{ color: "#fbbf24" }}>{loanee.firstName} {loanee.lastName}</strong>
+          {" "}seit {activeLoan.loanDate}
         </div>
       )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        {!activeLoan && <Btn variant={mode === "loan"   ? "primary" : "ghost"} onClick={() => setMode("loan")}>📤 Ausleihen</Btn>}
-        {activeLoan  && <Btn variant={mode === "return" ? "primary" : "ghost"} onClick={() => setMode("return")}>📥 Zurückgeben</Btn>}
+        {!activeLoan && (
+          <Btn variant={mode === "loan" ? "primary" : "secondary"} onClick={() => setMode("loan")}>
+            📤 Ausleihen
+          </Btn>
+        )}
+        {activeLoan && (
+          <Btn variant={mode === "return" ? "primary" : "secondary"} onClick={() => setMode("return")}>
+            📥 Zurückgeben
+          </Btn>
+        )}
       </div>
 
       {mode === "loan" && (
@@ -91,8 +133,20 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
 
       {mode === "return" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ padding: "12px 14px", background: "#f0fdf4", borderRadius: 9, border: "1px solid #bbf7d0", fontSize: 13, color: "#166534" }}>
-            ✅ Hardware wird von <strong>{loanee?.firstName} {loanee?.lastName}</strong> zurückgenommen und als "Verfügbar" markiert.
+          <div
+            style={{
+              padding: "12px 14px",
+              background: "rgba(16,185,129,0.08)",
+              borderRadius: "8px",
+              border: "1px solid rgba(16,185,129,0.3)",
+              fontSize: 13,
+              color: "#10b981",
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            ✅ Hardware wird von{" "}
+            <strong style={{ color: "#34d399" }}>{loanee?.firstName} {loanee?.lastName}</strong>
+            {" "}zurückgenommen und als "Verfügbar" markiert.
           </div>
           <Input label="Zustandsnotiz" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="z.B. Gerät in gutem Zustand …" />
         </div>
@@ -116,6 +170,7 @@ function HardwarePage({ toast }) {
   const [search, setSearch]     = useState("");
   const [filter, setFilter]     = useState("ALL");
   const [loanDialog, setLoanDialog] = useState(null);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = hardware.filter((h) => {
     const matchSearch = `${h.name} ${h.assetTag} ${h.manufacturer}`.toLowerCase().includes(search.toLowerCase());
@@ -142,83 +197,179 @@ function HardwarePage({ toast }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      {/* Toolbar */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        {/* Search */}
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.textMuted }}>🔍</span>
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}
+          >
+            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+            <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Hardware suchen …"
-            style={{ width: "100%", padding: "9px 12px 9px 34px", borderRadius: 9, border: `1px solid ${T.border}`, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            style={{
+              width: "100%",
+              padding: "10px 14px 10px 36px",
+              borderRadius: "8px",
+              border: `1px solid ${searchFocused ? "#6366f1" : "#334155"}`,
+              fontSize: 13,
+              outline: "none",
+              background: "#0f172a",
+              color: "#f1f5f9",
+              fontFamily: "'DM Sans', sans-serif",
+              boxSizing: "border-box",
+              boxShadow: searchFocused ? "0 0 0 3px rgba(99,102,241,0.15)" : "none",
+              transition: "border-color 150ms ease, box-shadow 150ms ease",
+            }}
           />
         </div>
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {["ALL", "AVAILABLE", "LOANED", "MAINTENANCE", "RETIRED"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              style={{
-                padding: "7px 12px", borderRadius: 8,
-                border: `1.5px solid ${filter === s ? T.primary : T.border}`,
-                background: filter === s ? "#eef2ff" : "#fff",
-                color: filter === s ? T.primary : T.textMuted,
-                fontSize: 12, fontWeight: 500, cursor: "pointer",
-              }}
-            >
-              {s === "ALL" ? "Alle" : STATUS[s]?.label || s}
-            </button>
-          ))}
+
+        {/* Filter pills */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {["ALL", "AVAILABLE", "LOANED", "MAINTENANCE", "RETIRED"].map((s) => {
+            const active = filter === s;
+            return (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: "20px",
+                  border: `1px solid ${active ? "#6366f1" : "#334155"}`,
+                  background: active ? "rgba(99,102,241,0.12)" : "#1e293b",
+                  color: active ? "#a5b4fc" : "#64748b",
+                  fontSize: 12,
+                  fontWeight: active ? 600 : 400,
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: "pointer",
+                  transition: "all 150ms ease",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {FILTER_LABELS[s] || s}
+              </button>
+            );
+          })}
         </div>
+
         <Btn>＋ Hardware</Btn>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 6px" }}>
+      {/* Table */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          background: "#1e293b",
+          borderRadius: "12px",
+          border: "1px solid #334155",
+          overflow: "hidden",
+        }}
+      >
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            <tr style={{ background: "#0f172a" }}>
               {["", "Asset-Tag", "Gerät", "Kategorie", "Status", "Garantie", "Zugewiesen an", ""].map((h, i) => (
-                <th key={i} style={{ padding: "4px 10px", textAlign: "left" }}>{h}</th>
+                <th
+                  key={i}
+                  style={{
+                    padding: "12px 14px",
+                    textAlign: "left",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#64748b",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    fontFamily: "'DM Sans', sans-serif",
+                    borderBottom: "1px solid #334155",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((hw) => {
+            {filtered.map((hw, idx) => {
               const loan     = loans.find((l) => l.hardwareId === hw.id && !l.returnedAt);
               const assignee = loan ? employees.find((e) => e.id === loan.employeeId) : null;
-              const st       = STATUS[hw.status] || { color: "#999", bg: "#eee", label: hw.status };
+              const st       = STATUS[hw.status] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)", label: hw.status };
               const warrantyExpired = new Date(hw.warrantyUntil) < new Date();
+
               return (
-                <tr key={hw.id} style={{ fontSize: 13 }}>
-                  <td style={{ padding: "11px 10px 11px 14px", background: "#fff", borderRadius: "11px 0 0 11px", border: `1px solid ${T.border}`, borderRight: "none", fontSize: 22 }}>
+                <tr
+                  key={hw.id}
+                  style={{
+                    fontSize: 13,
+                    borderBottom: idx < filtered.length - 1 ? "1px solid #334155" : "none",
+                    transition: "background 150ms ease",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.05)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <td style={{ padding: "14px 14px", fontSize: 20, lineHeight: 1 }}>
                     {HW_EMOJI[hw.category] || "🖥️"}
                   </td>
-                  <td style={{ padding: "11px 10px", background: "#fff", border: `1px solid ${T.border}`, borderLeft: "none", borderRight: "none" }}>
-                    <code style={{ fontSize: 11, background: T.bg, padding: "2px 7px", borderRadius: 5, color: T.primary }}>{hw.assetTag}</code>
+                  <td style={{ padding: "14px 14px" }}>
+                    <code
+                      style={{
+                        fontSize: 13,
+                        background: "rgba(99,102,241,0.1)",
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        color: "#a5b4fc",
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      {hw.assetTag}
+                    </code>
                   </td>
-                  <td style={{ padding: "11px 10px", background: "#fff", border: `1px solid ${T.border}`, borderLeft: "none", borderRight: "none" }}>
-                    <div style={{ fontWeight: 700, color: T.text }}>{hw.name}</div>
-                    <div style={{ fontSize: 11, color: T.textMuted }}>{hw.manufacturer} · {hw.model}</div>
+                  <td style={{ padding: "14px 14px" }}>
+                    <div style={{ fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
+                      {hw.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#475569", marginTop: 2, fontFamily: "'DM Sans', sans-serif" }}>
+                      {hw.manufacturer} · {hw.model}
+                    </div>
                   </td>
-                  <td style={{ padding: "11px 10px", background: "#fff", border: `1px solid ${T.border}`, borderLeft: "none", borderRight: "none" }}>
-                    <Badge label={hw.category} color={T.text} bg={T.bg} sm />
+                  <td style={{ padding: "14px 14px" }}>
+                    <Badge label={hw.category} color="#94a3b8" bg="rgba(148,163,184,0.1)" sm />
                   </td>
-                  <td style={{ padding: "11px 10px", background: "#fff", border: `1px solid ${T.border}`, borderLeft: "none", borderRight: "none" }}>
+                  <td style={{ padding: "14px 14px" }}>
                     <Badge label={st.label} color={st.color} bg={st.bg} sm />
                   </td>
-                  <td style={{ padding: "11px 10px", background: "#fff", border: `1px solid ${T.border}`, borderLeft: "none", borderRight: "none", color: warrantyExpired ? T.danger : T.textMuted, fontSize: 12 }}>
-                    {new Date(hw.warrantyUntil).toLocaleDateString("de-DE")}{warrantyExpired && " ⚠️"}
+                  <td
+                    style={{
+                      padding: "14px 14px",
+                      color: warrantyExpired ? "#ef4444" : "#64748b",
+                      fontSize: 12,
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    {new Date(hw.warrantyUntil).toLocaleDateString("de-DE")}
+                    {warrantyExpired && " ⚠️"}
                   </td>
-                  <td style={{ padding: "11px 10px", background: "#fff", border: `1px solid ${T.border}`, borderLeft: "none", borderRight: "none" }}>
+                  <td style={{ padding: "14px 14px" }}>
                     {assignee ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <Avatar name={`${assignee.firstName} ${assignee.lastName}`} size={22} />
-                        <span style={{ fontSize: 12 }}>{assignee.firstName} {assignee.lastName}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Avatar name={`${assignee.firstName} ${assignee.lastName}`} size={24} />
+                        <span style={{ fontSize: 12, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
+                          {assignee.firstName} {assignee.lastName}
+                        </span>
                       </div>
                     ) : (
-                      <span style={{ color: T.textMuted, fontSize: 12 }}>—</span>
+                      <span style={{ color: "#334155", fontSize: 12 }}>—</span>
                     )}
                   </td>
-                  <td style={{ padding: "11px 14px 11px 10px", background: "#fff", borderRadius: "0 11px 11px 0", border: `1px solid ${T.border}`, borderLeft: "none" }}>
+                  <td style={{ padding: "14px 14px" }}>
                     {hw.status !== "RETIRED" && (
                       <Btn sm variant="secondary" onClick={() => setLoanDialog(hw)}>
                         {hw.status === "LOANED" ? "📥 Rückgabe" : "📤 Ausleihen"}
