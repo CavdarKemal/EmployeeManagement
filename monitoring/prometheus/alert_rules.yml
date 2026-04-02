@@ -1,0 +1,136 @@
+groups:
+
+  # ── Backend-Alerts ───────────────────────────────────────
+  - name: employeemanagement-backend
+    interval: 30s
+    rules:
+
+      - alert: BackendDown
+        expr: up{job="employeemanagement-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: employeemanagement-backend
+        annotations:
+          summary: "EmployeeManagement Backend nicht erreichbar"
+          description: "Der Backend-Service ist seit > 1 Minute nicht erreichbar."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{
+            status=~"5..", application="employeemanagement-backend"
+          }[5m]))
+          /
+          sum(rate(http_server_requests_seconds_count{
+            application="employeemanagement-backend"
+          }[5m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: employeemanagement-backend
+        annotations:
+          summary: "Hohe Fehlerrate im Backend"
+          description: "5xx-Fehlerrate liegt bei {{ printf \"%.1f\" $value }}% (Schwellenwert: 5%)."
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_server_requests_seconds_bucket{
+              application="employeemanagement-backend"
+            }[5m])
+          ) * 1000 > 2000
+        for: 3m
+        labels:
+          severity: warning
+          service: employeemanagement-backend
+        annotations:
+          summary: "Hohe API-Latenz"
+          description: "p99-Latenz liegt bei {{ printf \"%.0f\" $value }}ms (Schwellenwert: 2000ms)."
+
+      - alert: HighJvmHeap
+        expr: |
+          jvm_memory_used_bytes{area="heap", application="employeemanagement-backend"}
+          /
+          jvm_memory_max_bytes{area="heap", application="employeemanagement-backend"} * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: employeemanagement-backend
+        annotations:
+          summary: "JVM Heap-Auslastung hoch"
+          description: "Heap-Nutzung liegt bei {{ printf \"%.0f\" $value }}% (Schwellenwert: 85%)."
+
+      - alert: DbConnectionPoolExhausted
+        expr: |
+          hikaricp_connections_pending{application="employeemanagement-backend"} > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: employeemanagement-backend
+        annotations:
+          summary: "DB Connection Pool erschöpft"
+          description: "{{ $value }} Threads warten auf eine DB-Verbindung."
+
+  # ── PostgreSQL-Alerts ────────────────────────────────────
+  - name: postgres
+    rules:
+
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: "PostgreSQL nicht erreichbar"
+          description: "PostgreSQL ist seit > 1 Minute nicht erreichbar."
+
+      - alert: PostgresHighConnections
+        expr: |
+          pg_stat_database_numbackends{datname="employeemanagement"}
+          / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "Viele DB-Verbindungen"
+          description: "{{ printf \"%.0f\" $value }}% der max. Verbindungen sind belegt."
+
+  # ── Business-Alerts ──────────────────────────────────────
+  - name: employeemanagement-business
+    rules:
+
+      - alert: LicenseCapacityCritical
+        expr: employeemanagement_licenses_usage_percent > 95
+        for: 10m
+        labels:
+          severity: warning
+          service: employeemanagement-backend
+        annotations:
+          summary: "Lizenzkapazität kritisch"
+          description: "Software '{{ $labels.software }}' ist zu {{ printf \"%.0f\" $value }}% ausgelastet."
+
+  # ── Server-Alerts ────────────────────────────────────────
+  - name: node
+    rules:
+
+      - alert: HighCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hohe CPU-Auslastung"
+          description: "CPU-Auslastung liegt bei {{ printf \"%.0f\" $value }}%."
+
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"}
+          / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Wenig Festplattenplatz"
+          description: "Nur noch {{ printf \"%.0f\" $value }}% Festplattenplatz verfügbar."

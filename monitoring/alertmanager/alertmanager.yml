@@ -1,0 +1,75 @@
+global:
+  resolve_timeout: 5m
+  slack_api_url: ${SLACK_WEBHOOK_URL}
+
+route:
+  group_by: [alertname, service]
+  group_wait:      30s
+  group_interval:  5m
+  repeat_interval: 4h
+  receiver: default
+
+  routes:
+    # Kritische Alerts -> sofort & Slack + E-Mail
+    - match:
+        severity: critical
+      receiver: critical
+      repeat_interval: 1h
+
+    # Backend-Fehler -> Slack Dev-Channel
+    - match:
+        service: employeemanagement-backend
+      receiver: backend-team
+
+    # DB-Probleme -> DBA-Channel
+    - match:
+        service: postgres
+      receiver: dba-team
+
+receivers:
+
+  - name: default
+    slack_configs:
+      - channel: '#employeemanagement-alerts'
+        title: '{{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Schweregrad:* {{ .Labels.severity }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+  - name: critical
+    slack_configs:
+      - channel: '#employeemanagement-critical'
+        title: 'KRITISCH: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    email_configs:
+      - to: oncall@firma.de
+        from: alerts@firma.de
+        smarthost: smtp.firma.de:587
+        auth_username: alerts@firma.de
+        auth_password: ${SMTP_PASSWORD}
+        headers:
+          Subject: '[EMPLOYEEMANAGEMENT KRITISCH] {{ .GroupLabels.alertname }}'
+
+  - name: backend-team
+    slack_configs:
+      - channel: '#team-backend'
+        title: 'Backend Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+  - name: dba-team
+    slack_configs:
+      - channel: '#team-dba'
+        title: 'Datenbank Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+inhibit_rules:
+  # Wenn kritisch feuert -> Warnings unterdrücken
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: [alertname, service]

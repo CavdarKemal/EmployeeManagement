@@ -1,0 +1,159 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "EmployeeManagement Renovate-Konfiguration – automatische Dependency-Updates",
+
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separatePatchReleases",
+    "group:monorepos",
+    "group:recommended",
+    "workarounds:all"
+  ],
+
+  "timezone": "Europe/Berlin",
+  "schedule": ["every weekend"],
+
+  "labels": ["dependencies"],
+  "assignees": ["your-github-username"],
+  "reviewers": ["your-github-username"],
+
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "branchConcurrentLimit": 10,
+
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "prPriority": 10
+  },
+
+  "osvVulnerabilityAlerts": true,
+
+  "automerge": false,
+  "automergeType": "pr",
+
+  "packageRules": [
+
+    {
+      "description": "Patch-Updates auto-mergen",
+      "matchUpdateTypes": ["patch", "pin", "pinDigest"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true,
+      "automergeStrategy": "squash",
+      "labels": ["dependencies", "automerge"]
+    },
+
+    {
+      "description": "Spring Boot Gruppe",
+      "matchPackagePrefixes": [
+        "org.springframework.boot",
+        "org.springframework",
+        "org.springframework.security"
+      ],
+      "groupName": "Spring Boot",
+      "labels": ["dependencies", "backend", "spring"]
+    },
+
+    {
+      "description": "Spring Boot Major – manuelle Prüfung",
+      "matchPackagePrefixes": ["org.springframework.boot"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "backend", "major-update"],
+      "prPriority": -1
+    },
+
+    {
+      "description": "Testcontainers",
+      "matchPackagePrefixes": ["org.testcontainers"],
+      "groupName": "Testcontainers",
+      "labels": ["dependencies", "backend", "testing"]
+    },
+
+    {
+      "description": "JJWT",
+      "matchPackagePrefixes": ["io.jsonwebtoken"],
+      "groupName": "JJWT",
+      "labels": ["dependencies", "backend", "security"]
+    },
+
+    {
+      "description": "React Ökosystem",
+      "matchPackageNames": [
+        "react",
+        "react-dom",
+        "react-router",
+        "react-router-dom",
+        "@types/react",
+        "@types/react-dom"
+      ],
+      "groupName": "React",
+      "labels": ["dependencies", "frontend", "react"]
+    },
+
+    {
+      "description": "Vite & Build-Tools",
+      "matchPackagePrefixes": ["vite", "@vitejs/", "eslint", "@eslint/"],
+      "groupName": "Build-Tools",
+      "labels": ["dependencies", "frontend", "build"]
+    },
+
+    {
+      "description": "Testing-Libraries",
+      "matchPackagePrefixes": ["vitest", "@testing-library/", "@vitest/"],
+      "matchPackageNames": ["jsdom", "happy-dom"],
+      "groupName": "Testing",
+      "labels": ["dependencies", "testing"]
+    },
+
+    {
+      "description": "Docker Images",
+      "matchManagers": ["dockerfile"],
+      "labels": ["dependencies", "docker"],
+      "automerge": false
+    },
+
+    {
+      "description": "GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "labels": ["dependencies", "ci-cd"],
+      "automerge": true,
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+
+    {
+      "description": "Major-Updates – immer manuell",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major-update"],
+      "prPriority": -1
+    }
+  ],
+
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Renovate Dependency Dashboard",
+  "dependencyDashboardLabels": ["renovate"],
+
+  "commitMessagePrefix": "chore(deps):",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "to {{newVersion}}",
+
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"],
+    "commitMessageAction": "update lockfiles"
+  },
+
+  "pinDigests": true,
+
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/target/**",
+    "**/.gradle/**"
+  ]
+}
