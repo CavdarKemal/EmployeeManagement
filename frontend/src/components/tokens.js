@@ -1,29 +1,40 @@
 // ═══════════════════════════════════════════════════════════
-// DESIGN TOKENS
+// DESIGN TOKENS — Dark Corporate
 // ═══════════════════════════════════════════════════════════
 export const T = {
-  primary:     "#3d52a0",
-  primaryLight:"#7091e6",
-  primaryDark: "#1e2a5e",
-  accent:      "#8697c4",
-  bg:          "#f0f4ff",
-  surface:     "#ffffff",
-  border:      "#dde3f0",
-  text:        "#1a1f36",
-  textMuted:   "#6b7280",
-  success:     "#059669",
-  warning:     "#d97706",
-  danger:      "#dc2626",
-  shadow:      "0 2px 8px rgba(61,82,160,.12)",
-  radius:      12,
+  bg:            "#0f172a",
+  bgElevated:    "#1e293b",
+  bgCard:        "#1e293b",
+  border:        "#334155",
+  borderSubtle:  "#1e293b",
+  text:          "#f1f5f9",
+  textMuted:     "#94a3b8",
+  textDim:       "#475569",
+  accent:        "#6366f1",
+  accentHover:   "#4f46e5",
+  accentSubtle:  "rgba(99,102,241,0.12)",
+  success:       "#10b981",
+  warning:       "#f59e0b",
+  danger:        "#ef4444",
+  info:          "#3b82f6",
+  fontHeading:   "Sora",
+  fontBody:      "DM Sans",
+  fontMono:      "JetBrains Mono",
+  radius: {
+    sm: "4px",
+    md: "8px",
+    lg: "12px",
+  },
 };
 
 export const DEPT = {
-  Engineering:     "#3b82f6",
-  Product:         "#8b5cf6",
-  Design:          "#ec4899",
-  "Human Resources":"#f59e0b",
-  Marketing:       "#10b981",
+  Engineering:      "#6366f1",
+  Product:          "#8b5cf6",
+  Design:           "#ec4899",
+  "Human Resources": "#f59e0b",
+  Marketing:        "#10b981",
+  Finance:          "#3b82f6",
+  IT:               "#06b6d4",
 };
 
 export const HW_EMOJI = {
@@ -36,8 +47,8 @@ export const HW_EMOJI = {
 };
 
 export const STATUS = {
-  AVAILABLE:   { color: "#059669", bg: "#d1fae5", label: "Verfügbar" },
-  LOANED:      { color: "#d97706", bg: "#fef3c7", label: "Ausgeliehen" },
-  MAINTENANCE: { color: "#7c3aed", bg: "#ede9fe", label: "Wartung" },
-  RETIRED:     { color: "#6b7280", bg: "#f3f4f6", label: "Ausgemustert" },
+  AVAILABLE:   { color: "#10b981", bg: "rgba(16,185,129,0.12)",  label: "Verfügbar" },
+  LOANED:      { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  label: "Ausgeliehen" },
+  MAINTENANCE: { color: "#3b82f6", bg: "rgba(59,130,246,0.12)",  label: "Wartung" },
+  RETIRED:     { color: "#64748b", bg: "rgba(100,116,139,0.12)", label: "Ausgemustert" },
 };

@@ -1,24 +1,30 @@
-import { T } from "./tokens.js";
+const Toast = ({ msg, type = "success" }) => {
+  const borderColor = type === "error" ? "#ef4444" : "#10b981";
 
-const Toast = ({ msg, type = "success" }) => (
-  <div
-    style={{
-      position: "fixed",
-      bottom: 24,
-      right: 24,
-      zIndex: 2000,
-      background: type === "error" ? T.danger : T.success,
-      color: "#fff",
-      padding: "12px 20px",
-      borderRadius: 10,
-      fontSize: 13,
-      fontWeight: 600,
-      boxShadow: "0 4px 16px rgba(0,0,0,.2)",
-      maxWidth: 360,
-    }}
-  >
-    {msg}
-  </div>
-);
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 24,
+        right: 24,
+        zIndex: 2000,
+        background: "#1e293b",
+        borderLeft: `4px solid ${borderColor}`,
+        border: `1px solid #334155`,
+        borderLeftColor: borderColor,
+        color: "#f1f5f9",
+        padding: "12px 20px",
+        borderRadius: "8px",
+        fontSize: 13,
+        fontWeight: 500,
+        fontFamily: "'DM Sans', sans-serif",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+        maxWidth: 360,
+      }}
+    >
+      {msg}
+    </div>
+  );
+};
 
 export default Toast;

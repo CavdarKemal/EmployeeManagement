@@ -1,4 +1,4 @@
-const Badge = ({ label, color = "#374151", bg = "#f3f4f6", sm }) => (
+const Badge = ({ label, color = "#94a3b8", bg = "rgba(148,163,184,0.12)", sm, children }) => (
   <span
     style={{
       background: bg,
@@ -9,9 +9,10 @@ const Badge = ({ label, color = "#374151", bg = "#f3f4f6", sm }) => (
       fontWeight: 600,
       whiteSpace: "nowrap",
       letterSpacing: "0.2px",
+      display: "inline-block",
     }}
   >
-    {label}
+    {label ?? children}
   </span>
 );
 

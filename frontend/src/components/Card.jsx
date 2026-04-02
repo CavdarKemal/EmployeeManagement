@@ -1,13 +1,10 @@
-import { T } from "./tokens.js";
-
 const Card = ({ children, p = 20, style = {} }) => (
   <div
     style={{
-      background: T.surface,
-      borderRadius: T.radius,
-      border: `1px solid ${T.border}`,
+      background: "#1e293b",
+      borderRadius: "12px",
+      border: "1px solid #334155",
       padding: p,
-      boxShadow: T.shadow,
       ...style,
     }}
   >

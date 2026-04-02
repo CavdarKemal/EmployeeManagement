@@ -42,7 +42,6 @@ function EmployeeFormModal({ employee, onSave, onClose }) {
     if (!validate()) return;
     setSaving(true);
     try {
-      // In der Produktionsversion: await api.post/put(...)
       await new Promise((r) => setTimeout(r, 500));
       onSave({ ...form, id: form.id ?? Date.now(), salary: Number(form.salary) });
     } finally {
@@ -68,8 +67,16 @@ function EmployeeFormModal({ employee, onSave, onClose }) {
         />
         <Input label="Gehalt (€/Jahr)" type="number" value={form.salary} onChange={(e) => set("salary", e.target.value)} placeholder="75000" />
         <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
-          <input type="checkbox" id="active" checked={form.active} onChange={(e) => set("active", e.target.checked)} />
-          <label htmlFor="active" style={{ fontSize: 13, color: T.text }}>Aktiv</label>
+          <input
+            type="checkbox"
+            id="active"
+            checked={form.active}
+            onChange={(e) => set("active", e.target.checked)}
+            style={{ accentColor: "#6366f1" }}
+          />
+          <label htmlFor="active" style={{ fontSize: 13, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
+            Aktiv
+          </label>
         </div>
       </div>
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
@@ -87,6 +94,7 @@ function EmployeesPage({ toast }) {
   const [search, setSearch]       = useState("");
   const [showForm, setShowForm]   = useState(false);
   const [editEmp, setEditEmp]     = useState(null);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = employees.filter((e) =>
     `${e.firstName} ${e.lastName} ${e.employeeNumber} ${e.department} ${e.position}`
@@ -110,104 +118,281 @@ function EmployeesPage({ toast }) {
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
-          <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.textMuted, pointerEvents: "none" }}>🔍</span>
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}
+          >
+            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+            <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Name, Nummer, Abteilung suchen …"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             style={{
-              width: "100%", padding: "9px 12px 9px 34px", borderRadius: 9,
-              border: `1px solid ${T.border}`, fontSize: 13, outline: "none",
-              background: "#fff", boxSizing: "border-box",
+              width: "100%",
+              padding: "10px 14px 10px 36px",
+              borderRadius: "8px",
+              border: `1px solid ${searchFocused ? "#6366f1" : "#334155"}`,
+              fontSize: 13,
+              outline: "none",
+              background: "#0f172a",
+              color: "#f1f5f9",
+              fontFamily: "'DM Sans', sans-serif",
+              boxSizing: "border-box",
+              boxShadow: searchFocused ? "0 0 0 3px rgba(99,102,241,0.15)" : "none",
+              transition: "border-color 150ms ease, box-shadow 150ms ease",
             }}
           />
         </div>
         <Btn onClick={() => { setEditEmp(null); setShowForm(true); }}>＋ Mitarbeiter</Btn>
       </div>
 
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0 }}>
+      <div style={{ display: "flex", gap: 0, flex: 1, minHeight: 0, background: "#1e293b", borderRadius: "12px", border: "1px solid #334155", overflow: "hidden" }}>
         {/* Master List */}
-        <div style={{ width: 280, flexShrink: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-          {filtered.map((e) => (
-            <div
-              key={e.id}
-              onClick={() => setSelected(e.id)}
-              style={{
-                background: selected === e.id ? "#eef2ff" : "#fff",
-                border: `1.5px solid ${selected === e.id ? T.primaryLight : T.border}`,
-                borderRadius: 11, padding: "11px 13px", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 11, transition: "all .15s",
-              }}
-            >
-              <Avatar name={`${e.firstName} ${e.lastName}`} size={38} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: T.text, display: "flex", justifyContent: "space-between" }}>
-                  {e.firstName} {e.lastName}
-                  {!e.active && <Badge label="Inaktiv" color={T.danger} bg="#fee2e2" sm />}
-                </div>
-                <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>{e.position}</div>
-                <div style={{ marginTop: 5 }}>
-                  <Badge label={e.department} color={DEPT[e.department] || T.textMuted} bg={(DEPT[e.department] || T.textMuted) + "22"} sm />
+        <div
+          style={{
+            width: 380,
+            flexShrink: 0,
+            overflowY: "auto",
+            borderRight: "1px solid #1e293b",
+          }}
+        >
+          {filtered.map((e, idx) => {
+            const isActive = selected === e.id;
+            const deptColor = DEPT[e.department] || "#6366f1";
+            return (
+              <div
+                key={e.id}
+                onClick={() => setSelected(e.id)}
+                style={{
+                  padding: "12px 16px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  transition: "background 150ms ease",
+                  background: isActive ? "rgba(99,102,241,0.10)" : "transparent",
+                  borderLeft: isActive ? "3px solid #6366f1" : "3px solid transparent",
+                  borderBottom: idx < filtered.length - 1 ? "1px solid #1e293b" : "none",
+                }}
+                onMouseEnter={(el) => { if (!isActive) el.currentTarget.style.background = "rgba(51,65,85,0.5)"; }}
+                onMouseLeave={(el) => { if (!isActive) el.currentTarget.style.background = "transparent"; }}
+              >
+                <Avatar name={`${e.firstName} ${e.lastName}`} size={38} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
+                      {e.firstName} {e.lastName}
+                    </span>
+                    {!e.active && (
+                      <Badge label="Inaktiv" color="#ef4444" bg="rgba(239,68,68,0.12)" sm />
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#475569",
+                      marginTop: 2,
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
+                    {e.employeeNumber}
+                  </div>
+                  <div style={{ marginTop: 5 }}>
+                    <Badge
+                      label={e.department}
+                      color={deptColor}
+                      bg={deptColor + "22"}
+                      sm
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Detail */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
+        <div style={{ flex: 1, overflowY: "auto", background: "#0f172a" }}>
           {!emp ? (
-            <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: T.textMuted }}>
-              <span style={{ fontSize: 48 }}>👤</span>
-              <div style={{ fontSize: 14 }}>Mitarbeiter auswählen</div>
+            <div
+              style={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                gap: 12,
+                color: "#334155",
+              }}
+            >
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="20" r="10" stroke="currentColor" strokeWidth="2.5" fill="none"/>
+                <path d="M8 48c0-11.046 8.954-20 20-20s20 8.954 20 20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              </svg>
+              <div style={{ fontSize: 14, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
+                Mitarbeiter auswählen
+              </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <Card style={{ borderTop: `4px solid ${DEPT[emp.department] || T.primary}` }}>
-                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              {/* Header card */}
+              <div
+                style={{
+                  padding: "24px 28px",
+                  borderBottom: "1px solid #1e293b",
+                  background: "#0f172a",
+                }}
+              >
+                <div style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
                   <Avatar name={`${emp.firstName} ${emp.lastName}`} size={60} />
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.text }}>{emp.firstName} {emp.lastName}</h2>
-                      <Badge label={emp.active ? "Aktiv" : "Inaktiv"} color={emp.active ? T.success : T.danger} bg={emp.active ? "#d1fae5" : "#fee2e2"} />
+                      <h2
+                        style={{
+                          margin: 0,
+                          fontSize: 20,
+                          fontWeight: 600,
+                          color: "#f1f5f9",
+                          fontFamily: "'Sora', sans-serif",
+                        }}
+                      >
+                        {emp.firstName} {emp.lastName}
+                      </h2>
+                      <Badge
+                        label={emp.active ? "Aktiv" : "Inaktiv"}
+                        color={emp.active ? "#10b981" : "#ef4444"}
+                        bg={emp.active ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)"}
+                      />
                     </div>
-                    <div style={{ color: T.primary, fontWeight: 600, marginTop: 4, fontSize: 14 }}>{emp.position}</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                      <Badge label={emp.department} color={DEPT[emp.department] || T.textMuted} bg={(DEPT[emp.department] || T.textMuted) + "22"} />
-                      <Badge label={emp.employeeNumber} color={T.text} bg={T.bg} />
+                    <div
+                      style={{
+                        color: "#a5b4fc",
+                        fontWeight: 500,
+                        marginTop: 4,
+                        fontSize: 14,
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >
+                      {emp.position}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <Badge
+                        label={emp.department}
+                        color={DEPT[emp.department] || "#94a3b8"}
+                        bg={(DEPT[emp.department] || "#94a3b8") + "22"}
+                      />
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#475569",
+                          fontFamily: "'JetBrains Mono', monospace",
+                        }}
+                      >
+                        {emp.employeeNumber}
+                      </span>
                     </div>
                   </div>
-                  <Btn sm variant="ghost" onClick={() => { setEditEmp(emp); setShowForm(true); }}>✏️ Bearbeiten</Btn>
+                  <Btn sm variant="secondary" onClick={() => { setEditEmp(emp); setShowForm(true); }}>
+                    ✏️ Bearbeiten
+                  </Btn>
                 </div>
-              </Card>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { icon: "📧", label: "E-Mail",      value: emp.email },
-                  { icon: "📞", label: "Telefon",     value: emp.phone || "—" },
-                  { icon: "📅", label: "Eingestellt", value: new Date(emp.hireDate).toLocaleDateString("de-DE") },
-                  { icon: "💶", label: "Gehalt",      value: `${emp.salary?.toLocaleString("de-DE")} €/Jahr` },
-                ].map((item) => (
-                  <Card key={item.label} p={14}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 18 }}>{item.icon}</span>
-                      <div>
-                        <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>{item.label}</div>
-                        <div style={{ fontSize: 13, color: T.text, fontWeight: 600, marginTop: 2 }}>{item.value}</div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
               </div>
 
-              <Card>
-                <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>💻 Zugewiesene Hardware</div>
-                <div style={{ color: T.textMuted, fontSize: 13 }}>Hardware-Tab für Details öffnen.</div>
-              </Card>
-              <Card>
-                <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>📦 Software &amp; Lizenzen</div>
-                <div style={{ color: T.textMuted, fontSize: 13 }}>Software-Tab für Details öffnen.</div>
-              </Card>
+              {/* Info grid */}
+              <div
+                style={{
+                  padding: "20px 28px",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 20,
+                }}
+              >
+                {[
+                  { label: "E-MAIL",      value: emp.email },
+                  { label: "TELEFON",     value: emp.phone || "—" },
+                  { label: "EINGESTELLT", value: new Date(emp.hireDate).toLocaleDateString("de-DE") },
+                  { label: "GEHALT",      value: `${emp.salary?.toLocaleString("de-DE")} €/Jahr` },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#64748b",
+                        fontWeight: 500,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        fontFamily: "'DM Sans', sans-serif",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        color: "#f1f5f9",
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Hardware section */}
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div
+                    style={{
+                      borderTop: "1px solid #1e293b",
+                      paddingTop: 16,
+                      marginTop: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#64748b",
+                        fontWeight: 500,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        fontFamily: "'DM Sans', sans-serif",
+                        marginBottom: 8,
+                      }}
+                    >
+                      ZUGEWIESENE HARDWARE
+                    </div>
+                    <div style={{ fontSize: 13, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
+                      Hardware-Tab für Details öffnen.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Software section */}
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#64748b",
+                        fontWeight: 500,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        fontFamily: "'DM Sans', sans-serif",
+                        marginBottom: 8,
+                      }}
+                    >
+                      SOFTWARE & LIZENZEN
+                    </div>
+                    <div style={{ fontSize: 13, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
+                      Software-Tab für Details öffnen.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
