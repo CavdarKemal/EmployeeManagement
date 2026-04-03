@@ -1,0 +1,15 @@
+# ── Datenbank ─────────────────────────────────────────────
+POSTGRES_DB=employeemanagement
+POSTGRES_USER=employeemanagement
+POSTGRES_PASSWORD=Cavdar&PostgreSQL
+
+# ── Backend / JWT ──────────────────────────────────────────
+JWT_SECRET=pJeYY0bsBIJ7cYEDVx0HWc+4s3siDZUL+RZDo4EJjEJGlmzSwbbFepWsilcVVnjp
+JWT_EXPIRATION_MS=86400000
+
+# ── Frontend ───────────────────────────────────────────────
+# In Prod: echte Domain oder leer lassen (nginx-Proxy greift)
+VITE_API_BASE_URL=https://em.cavdar.de/api/v1
+
+kemal@cavdar.de
+Cavdar&Hetzner#2026
