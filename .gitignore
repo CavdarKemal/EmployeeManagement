@@ -1,0 +1,26 @@
+*.iml
+*.iws
+*.ipr
+*.idea
+*.settings
+*.metadata
+*.recommenders
+*.project
+*.classpath
+*.log
+logs
+.hg
+.target 
+.hgignore
+rewrite.yml
+auslieferung/
+import/
+target/
+
+*.crt
+*.gpg
+*.xml
+*.zip
+
+# Claude Code local settings
+.claude/

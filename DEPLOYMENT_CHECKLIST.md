@@ -16,7 +16,7 @@ Docker grundsätzlich nicht möglich.
 **Wie herausfinden?**
 1. Melde dich auf cloud86.de in deinem Kundenkonto an
 2. Geh zu „Meine Produkte" oder „Verträge"
-3. Schaue, wie dein Paket heißt:
+3. Schaue, wie dein Paket heißt: **Webhosting Medium**
    - Enthält es Begriffe wie **„Webhosting"**, **„Shared Hosting"**, **„Hosting-Paket"**?
      → Das ist Shared Hosting → Docker **nicht** möglich → Upgrade nötig
    - Enthält es Begriffe wie **„VPS"**, **„V-Server"**, **„Root-Server"**, **„Dedicated Server"**?
