@@ -1,15 +1,43 @@
-# Deployment-Anleitung: EmployeeManagement auf Linux-VPS
+# Deployment-Anleitung: EmployeeManagement auf Hetzner Cloud
 
-**Ziel:** App unter `em.cavdar.de` (oder gewünschte Subdomain) erreichbar machen  
-**Voraussetzungen:** Linux-VPS mit Root-Zugriff, SSH-Zugang, Domain cavdar.de
+**Ziel:** App unter `em.cavdar.de` erreichbar machen  
+**Hoster:** Hetzner Cloud (hetzner.com/cloud) — ~4 €/Monat  
+**Domain bleibt bei cloud86** — nur DNS-Eintrag wird angepasst
+
+---
+
+## Schritt 0 — Hetzner Server erstellen (einmalig)
+
+1. Account anlegen: **hetzner.com/cloud** → „Cloud" → „Jetzt starten"
+2. Neues Projekt anlegen: z.B. `employeemanagement`
+3. Server hinzufügen:
+   - **Standort:** Nürnberg oder Falkenstein (Deutschland)
+   - **Image:** Ubuntu 24.04
+   - **Typ:** `CX22` (2 vCPU, 4 GB RAM, 40 GB SSD) — ~4,15 €/Monat
+   - **SSH-Key:** Deinen öffentlichen Key einfügen (siehe unten)
+   - **Firewall:** Noch keine — richten wir im nächsten Schritt ein
+4. Server erstellen → **IP-Adresse** notieren (z.B. `1.2.3.4`)
+
+**SSH-Key generieren (auf deinem Windows-PC, falls noch nicht vorhanden):**
+```powershell
+# In PowerShell oder Git Bash ausführen
+ssh-keygen -t ed25519 -C "cavdar.de-deployment"
+# Öffentlichen Key anzeigen (für Hetzner-Konsole kopieren):
+cat ~/.ssh/id_ed25519.pub
+```
+
+**DNS-Eintrag in Plesk (cloud86) setzen:**
+- Plesk → Domains → cavdar.de → DNS-Einstellungen
+- Neuen A-Record anlegen: `em` → `<HETZNER-IP>`
+- DNS-Propagierung dauert 5–60 Minuten
 
 ---
 
 ## Schritt 1 — VPS absichern (einmalig)
 
 ```bash
-# Als root einloggen
-ssh root@<SERVER-IP>
+# Als root einloggen (Hetzner liefert den Server mit root + deinem SSH-Key)
+ssh root@<HETZNER-IP>
 
 # System aktualisieren
 apt update && apt upgrade -y
@@ -18,19 +46,24 @@ apt update && apt upgrade -y
 adduser deploy
 usermod -aG sudo deploy
 
-# SSH-Key für deploy-User einrichten (von deinem lokalen PC aus)
-# Führe das auf DEINEM Windows-PC aus:
-# ssh-copy-id deploy@<SERVER-IP>
+# SSH-Key für deploy-User übernehmen
+mkdir -p /home/deploy/.ssh
+cp /root/.ssh/authorized_keys /home/deploy/.ssh/
+chown -R deploy:deploy /home/deploy/.ssh
+chmod 700 /home/deploy/.ssh && chmod 600 /home/deploy/.ssh/authorized_keys
 
-# Root-Login per SSH deaktivieren (nach SSH-Key-Setup!)
+# Root-Login per SSH deaktivieren
 sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
 systemctl restart sshd
 
-# Firewall einrichten
+# Firewall einrichten (Hetzner hat auch eine Cloud-Firewall — aber UFW zusätzlich)
 ufw allow OpenSSH
 ufw allow 80
 ufw allow 443
 ufw enable
+
+# Testen: In neuem Terminal einloggen als deploy
+# ssh deploy@<HETZNER-IP>
 ```
 
 ---
@@ -299,4 +332,15 @@ free -h
 
 ---
 
-*Erstellt: 2026-04-03 | Projekt: EmployeeManagement*
+## Kosten-Übersicht
+
+| Position | Kosten |
+|----------|--------|
+| Hetzner CX22 | ~4,15 €/Monat |
+| Domain cavdar.de (cloud86) | bleibt wie gehabt |
+| SSL-Zertifikat (Let's Encrypt) | kostenlos |
+| **Gesamt** | **~4–5 €/Monat** |
+
+---
+
+*Erstellt: 2026-04-03 | Projekt: EmployeeManagement | Hoster: Hetzner Cloud*
