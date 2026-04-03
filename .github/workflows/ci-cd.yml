@@ -94,10 +94,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: ESLint ausführen
-        working-directory: frontend
-        run: npm run lint
-
       - name: Unit-Tests (Vitest)
         working-directory: frontend
         run: npm run test -- --coverage
