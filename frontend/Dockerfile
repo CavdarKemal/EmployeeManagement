@@ -20,6 +20,8 @@ RUN npm run build
 # ── Stage 2: Serve mit nginx ─────────────────────────────────────────────────
 FROM nginx:1.25-alpine AS production
 
+RUN apk add --no-cache wget
+
 # Sicherheits-Header & optimierte nginx-Konfiguration
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
