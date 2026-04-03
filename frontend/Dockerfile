@@ -18,7 +18,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # ── Stage 2: Serve mit nginx ─────────────────────────────────────────────────
-FROM nginx:1.25-alpine AS production
+FROM nginx:1.29-alpine AS production
 
 RUN apk add --no-cache wget
 
