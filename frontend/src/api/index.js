@@ -35,6 +35,19 @@ const api = {
   post:   (path, body) => api.request("POST",   path, body),
   put:    (path, body) => api.request("PUT",    path, body),
   delete: (path)       => api.request("DELETE", path),
+
+  async postForm(path, formData) {
+    const token = localStorage.getItem("jwt");
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    });
+    if (res.status === 401) { AuthCtx.logout?.(); return; }
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw err; }
+    if (res.status === 204) return null;
+    return res.json();
+  },
 };
 
 export default api;

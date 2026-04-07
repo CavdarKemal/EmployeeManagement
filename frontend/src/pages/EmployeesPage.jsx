@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/index.js";
 import { T, DEPT } from "../components/tokens.js";
 import Avatar from "../components/Avatar.jsx";
 import Badge from "../components/Badge.jsx";
@@ -8,12 +9,6 @@ import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 
-// Mock data
-const INITIAL_EMPLOYEES = [
-  { id: 1, employeeNumber: "EMP-001", firstName: "Maximilian", lastName: "Bauer",  email: "m.bauer@firma.de",   phone: "+49 30 1234567", position: "Senior Developer", department: "Engineering",  hireDate: "2021-03-15", salary: 85000, active: true },
-  { id: 2, employeeNumber: "EMP-002", firstName: "Sophie",     lastName: "Müller", email: "s.mueller@firma.de", phone: "+49 89 9876543", position: "Product Manager",  department: "Product",      hireDate: "2020-07-01", salary: 90000, active: true },
-  { id: 3, employeeNumber: "EMP-003", firstName: "Jonas",      lastName: "Weber",  email: "j.weber@firma.de",   phone: "+49 40 5555888", position: "UX Designer",      department: "Design",       hireDate: "2022-01-10", salary: 72000, active: true },
-];
 
 // ── Employee Form Modal ──────────────────────────────────────
 function EmployeeFormModal({ employee, onSave, onClose }) {
@@ -42,8 +37,16 @@ function EmployeeFormModal({ employee, onSave, onClose }) {
     if (!validate()) return;
     setSaving(true);
     try {
-      await new Promise((r) => setTimeout(r, 500));
-      onSave({ ...form, id: form.id ?? Date.now(), salary: Number(form.salary) });
+      const payload = { ...form, salary: Number(form.salary) };
+      let result;
+      if (form.id) {
+        result = await api.put(`/employees/${form.id}`, payload);
+      } else {
+        const formData = new FormData();
+        formData.append("employee", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+        result = await api.postForm("/employees", formData);
+      }
+      onSave(result);
     } finally {
       setSaving(false);
     }
@@ -89,7 +92,13 @@ function EmployeeFormModal({ employee, onSave, onClose }) {
 
 // ── Employees Page ───────────────────────────────────────────
 function EmployeesPage({ toast }) {
-  const [employees, setEmployees] = useState(INITIAL_EMPLOYEES);
+  const [employees, setEmployees] = useState([]);
+
+  useEffect(() => {
+    api.get("/employees?size=200").then((data) => {
+      if (data?.content) setEmployees(data.content);
+    }).catch(() => {});
+  }, []);
   const [selected, setSelected]   = useState(null);
   const [search, setSearch]       = useState("");
   const [showForm, setShowForm]   = useState(false);
