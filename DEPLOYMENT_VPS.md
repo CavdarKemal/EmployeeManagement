@@ -413,3 +413,25 @@ docker compose down -v
 ---
 
 *Erstellt: 2026-04-03 | Erfolgreich deployed: 2026-04-03 | Projekt: EmployeeManagement*
+
+
+
+
+Manuell auf dem Hetzner-Server ausführen:                                                                             
+  cd /opt/employeemanagement                                                                                            
+  # Backup der Datenbank
+  docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement \
+    > /opt/backups/employeemanagement_$(date +%Y%m%d_%H%M%S).sql
+
+  # Neue Images ziehen (aus GHCR, die CI hat diese schon gebaut)
+  docker compose pull backend frontend
+
+  # Rolling Update
+  docker compose up -d --no-deps backend
+  sleep 20
+
+  # Health-Check
+  curl -s http://localhost:8080/actuator/health
+
+  # Wenn "UP" → Frontend hochziehen
+  docker compose up -d --no-deps frontend
