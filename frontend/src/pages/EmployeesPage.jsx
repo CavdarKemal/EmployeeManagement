@@ -11,7 +11,7 @@ import Select from "../components/Select.jsx";
 
 
 // ── Employee Form Modal ──────────────────────────────────────
-function EmployeeFormModal({ employee, onSave, onClose }) {
+function EmployeeFormModal({ employee, onSave, onClose, toast }) {
   const initial = employee ?? {
     employeeNumber: "", firstName: "", lastName: "", email: "",
     phone: "", position: "", department: "", hireDate: "", salary: "", active: true,
@@ -47,6 +47,9 @@ function EmployeeFormModal({ employee, onSave, onClose }) {
         result = await api.postForm("/employees", formData);
       }
       onSave(result);
+    } catch (err) {
+      const msg = err?.message || err?.error || "Speichern fehlgeschlagen";
+      toast?.(msg);
     } finally {
       setSaving(false);
     }
@@ -97,7 +100,10 @@ function EmployeesPage({ toast }) {
   useEffect(() => {
     api.get("/employees?size=200").then((data) => {
       if (data?.content) setEmployees(data.content);
-    }).catch(() => {});
+    }).catch((err) => {
+      toast?.("Mitarbeiter konnten nicht geladen werden");
+      console.error("GET /employees failed:", err);
+    });
   }, []);
   const [selected, setSelected]   = useState(null);
   const [search, setSearch]       = useState("");
@@ -412,6 +418,7 @@ function EmployeesPage({ toast }) {
           employee={editEmp}
           onSave={handleSave}
           onClose={() => { setShowForm(false); setEditEmp(null); }}
+          toast={toast}
         />
       )}
     </div>
