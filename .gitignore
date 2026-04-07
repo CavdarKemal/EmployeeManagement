@@ -24,4 +24,8 @@ target/
 
 # Claude Code local settings
 .claude/
-*Hetztner.txt
+
+# Credentials / Secrets
+*.txt
+.env
+.env.*
