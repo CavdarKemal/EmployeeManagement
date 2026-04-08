@@ -413,25 +413,213 @@ docker compose down -v
 ---
 
 =======================================================================================================================
-# Manuell auf dem Hetzner-Server ausführen:
-  # Auf den Server gehen: 
-    ssh root@94.130.228.157
-  # Ins Projektverzeichnis wechseln
-    cd /opt/employeemanagement                                                                                            
-  # Backup der Datenbank
-    docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement /opt/backups/employeemanagement_$(date +%Y%m%d_%H%M%S).sql
-  # git abrufen
-      git pull
+# Manuell auf dem Hetzner-Server ausführen (nach Code-Änderungen)
+=======================================================================================================================
 
-  # Neue Images ziehen (aus GHCR, die CI hat diese schon gebaut)
-    docker compose pull backend frontend
+## Voraussetzungen
 
-  # Rolling Update
-    docker compose up -d --no-deps backend
-    sleep 20
+- SSH-Zugang zum Server ist konfiguriert (siehe SSH-Config unten)
+- Code-Änderungen sind committet und nach GitHub gepusht (`git push`)
 
-  # Health-Check
-    curl -s http://localhost:8080/actuator/health
+### SSH-Konfiguration (einmalig, auf dem eigenen PC)
 
-  # Wenn "UP" → Frontend hochziehen
-    docker compose up -d --no-deps frontend
+In `~/.ssh/config` muss folgender Eintrag stehen:
+
+```
+Host vps cavdar-vps 94.130.228.157
+  HostName 94.130.228.157
+  User root
+  IdentityFile c:\Users\CavdarK\.ssh\id_ed25519
+  PreferredAuthentications publickey
+```
+
+Danach kann man sich mit `ssh vps` verbinden.
+
+---
+
+## Schritt-für-Schritt: Deployment
+
+### 1. Auf den Server verbinden
+
+```bash
+ssh vps
+```
+
+### 2. Ins Projektverzeichnis wechseln
+
+```bash
+cd /opt/employeemanagement
+```
+
+### 3. Datenbank-Backup erstellen (Sicherheitsnetz)
+
+Immer vor einem Update ein Backup machen, damit man im Notfall
+die Daten wiederherstellen kann.
+
+```bash
+docker exec employeemanagement-postgres \
+  pg_dump -U employeemanagement employeemanagement \
+  > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
+
+# Prüfen ob das Backup erstellt wurde:
+ls -lh /opt/backups/employeemanagement/ | tail -3
+```
+
+### 4. Neuesten Code von GitHub holen
+
+```bash
+git pull
+```
+
+Falls eine Fehlermeldung "unsafe directory" kommt:
+```bash
+git config --global --add safe.directory /opt/employeemanagement
+git pull
+```
+
+### 5. Container neu bauen
+
+Je nachdem was sich geändert hat:
+
+```bash
+# Nur Backend geändert (Java-Code, Migrationen):
+docker compose build --no-cache backend
+
+# Nur Frontend geändert (React-Code):
+docker compose build --no-cache frontend
+
+# Beides geändert:
+docker compose build --no-cache backend frontend
+```
+
+**Hinweis:** `--no-cache` ist wichtig, damit Docker den neuen Code
+tatsächlich kompiliert und nicht den alten aus dem Cache nimmt.
+Der Build dauert ca. 1–3 Minuten.
+
+### 6. Container neu starten
+
+```bash
+# Alles auf einmal starten (empfohlen):
+docker compose up -d
+
+# Oder einzeln (für Rolling Update ohne Downtime):
+docker compose up -d --no-deps backend
+```
+
+Die Reihenfolge ist automatisch: PostgreSQL → Backend → Frontend.
+Das Backend braucht ca. 20–30 Sekunden zum Hochfahren (Flyway-
+Migrationen, Spring-Boot-Start).
+
+### 7. Prüfen ob alle Container laufen
+
+```bash
+docker compose ps
+```
+
+Erwartete Ausgabe — alle drei müssen **(healthy)** zeigen:
+
+```
+NAME                          STATUS
+employeemanagement-backend    Up X seconds (healthy)
+employeemanagement-frontend   Up X seconds (healthy)
+employeemanagement-postgres   Up X days (healthy)
+```
+
+Falls ein Container **unhealthy** oder **restarting** ist:
+```bash
+# Logs des betroffenen Containers prüfen:
+docker logs employeemanagement-backend --tail 50
+docker logs employeemanagement-frontend --tail 50
+```
+
+### 8. Anwendung testen
+
+```bash
+# Backend Health-Check:
+curl -s http://localhost:8082/actuator/health
+# Erwartete Antwort: {"status":"UP"}
+
+# Login testen:
+curl -s http://localhost:8082/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@firma.de","password":"admin123"}'
+# Erwartete Antwort: {"token":"eyJ...","tokenType":"Bearer","expiresInMs":86400000}
+
+# Frontend erreichbar?
+curl -s -o /dev/null -w "HTTP: %{http_code}" http://localhost:3000
+# Erwartete Antwort: HTTP: 200
+```
+
+### 9. Im Browser testen
+
+- https://em.cavdar.de/ aufrufen
+- **Strg+Shift+R** drücken (Hard Refresh, damit der Browser-Cache geleert wird)
+- Einloggen mit **admin@firma.de / admin123**
+- Mitarbeiter, Hardware, Software Seiten prüfen
+
+### 10. Aufräumen (optional)
+
+```bash
+# Alte, nicht mehr verwendete Docker-Images löschen (spart Speicherplatz):
+docker image prune -f
+
+# Speicherplatz auf dem Server prüfen:
+df -h /
+```
+
+---
+
+## Kurzversion (Copy-Paste)
+
+Wenn alles schon eingerichtet ist und man nur schnell deployen will:
+
+```bash
+ssh vps
+cd /opt/employeemanagement
+docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
+git pull
+docker compose build --no-cache backend frontend
+docker compose up -d
+sleep 30
+docker compose ps
+curl -s http://localhost:8082/actuator/health
+```
+
+---
+
+## Fehlerbehebung
+
+### Backend startet nicht (unhealthy)
+```bash
+docker logs employeemanagement-backend --tail 100
+```
+Häufige Ursachen:
+- **Flyway-Checksum-Fehler:** Eine bereits angewandte Migration wurde nachträglich
+  geändert. Fix: `docker exec employeemanagement-postgres psql -U employeemanagement
+  -d employeemanagement -c "DELETE FROM flyway_schema_history WHERE version = 'X';"`
+- **Port belegt:** `docker compose down` und dann `docker compose up -d`
+
+### Frontend zeigt alte Version
+- Browser-Cache leeren: **Strg+Shift+R**
+- Oder: Entwicklertools (F12) → Netzwerk → "Cache deaktivieren" anhaken
+
+### Datenbank zurücksetzen (letzter Ausweg)
+```bash
+# Backup einspielen:
+cat /opt/backups/employeemanagement/db_YYYYMMDD_HHMMSS.sql | \
+  docker exec -i employeemanagement-postgres \
+  psql -U employeemanagement -d employeemanagement
+
+# Oder komplett neu starten (ACHTUNG: alle Daten weg!):
+docker compose down -v
+docker compose up -d
+```
+
+### Container-Ressourcen prüfen
+```bash
+# RAM- und CPU-Verbrauch:
+docker stats --no-stream
+
+# Disk-Usage der Docker-Volumes:
+docker system df
+```
