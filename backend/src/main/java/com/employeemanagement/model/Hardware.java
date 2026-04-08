@@ -53,7 +53,7 @@ public class Hardware {
     @Column(name = "warranty_until")
     private LocalDate warrantyUntil;
 
-    @Column(columnDefinition = "hardware_status")
+    @Column(length = 20)
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private HardwareStatus status = HardwareStatus.AVAILABLE;

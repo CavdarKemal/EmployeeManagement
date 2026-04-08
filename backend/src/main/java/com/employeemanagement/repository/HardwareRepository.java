@@ -23,9 +23,9 @@ public interface HardwareRepository extends JpaRepository<Hardware, Long> {
     @Query("""
         SELECT h FROM Hardware h
         WHERE (:search IS NULL OR
-               LOWER(h.name)         LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(h.manufacturer) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(h.assetTag)     LIKE LOWER(CONCAT('%', :search, '%')))
+               LOWER(h.name)         LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+               LOWER(h.manufacturer) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+               LOWER(h.assetTag)     LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
           AND (:status IS NULL OR h.status = :status)
         """)
     Page<Hardware> search(@Param("search") String search,
