@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/index.js";
+import Spinner from "../components/Spinner.jsx";
 
 const ROLES = ["ADMIN", "HR", "IT", "VIEWER"];
 
@@ -9,52 +11,79 @@ const ROLE_CONFIG = {
   VIEWER: { color: "#64748b", bg: "rgba(100,116,139,0.12)", label: "Viewer", icon: "V", desc: "Nur lesender Zugriff" },
 };
 
-// Simulierte Benutzerdaten
-const MOCK_USERS = [
-  { id: 1, email: "admin@firma.de",     displayName: "System Admin",  role: "ADMIN",  enabled: true, accountNonLocked: true,  lastLoginAt: "2024-12-01T09:15:00", createdAt: "2024-01-01" },
-  { id: 2, email: "hr.meyer@firma.de",  displayName: "Maria Meyer",   role: "HR",     enabled: true, accountNonLocked: true,  lastLoginAt: "2024-12-01T08:30:00", createdAt: "2024-03-15" },
-  { id: 3, email: "it.schmidt@firma.de",displayName: "Klaus Schmidt", role: "IT",     enabled: true, accountNonLocked: true,  lastLoginAt: "2024-11-30T14:20:00", createdAt: "2024-02-10" },
-  { id: 4, email: "view.only@firma.de", displayName: "Leser Müller",  role: "VIEWER", enabled: true, accountNonLocked: false, lastLoginAt: null,                  createdAt: "2024-06-01" },
-];
-
 function getRoleDescription(role) {
   return ROLE_CONFIG[role]?.desc || "";
 }
 
 export function AdminPage({ toast }) {
-  const [users, setUsers]         = useState(MOCK_USERS);
+  const [users, setUsers]         = useState([]);
   const [search, setSearch]       = useState("");
   const [showForm, setShowForm]   = useState(false);
   const [confirmAction, setConfirm] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [loading, setLoading]     = useState(true);
+
+  useEffect(() => {
+    api.get("/admin/users?size=200").then((data) => {
+      if (data?.content) setUsers(data.content);
+    }).catch(() => toast?.("Benutzer konnten nicht geladen werden"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = users.filter((u) =>
     `${u.email} ${u.displayName}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleRoleChange = (userId, newRole) => {
-    setUsers((u) => u.map((usr) => usr.id === userId ? { ...usr, role: newRole } : usr));
-    toast(`Rolle erfolgreich geändert auf ${newRole}`);
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      const updated = await api.request("PATCH", `/admin/users/${userId}/role?role=${newRole}`);
+      setUsers((u) => u.map((usr) => usr.id === userId ? updated : usr));
+      toast(`Rolle erfolgreich geändert auf ${newRole}`);
+    } catch (err) {
+      toast(err?.message || "Rollenänderung fehlgeschlagen");
+    }
   };
 
-  const handleToggleLock = (userId) => {
-    const user = users.find((u) => u.id === userId);
-    setUsers((u) => u.map((usr) =>
-      usr.id === userId ? { ...usr, accountNonLocked: !usr.accountNonLocked } : usr
-    ));
-    toast(user.accountNonLocked ? "Account gesperrt" : "Account entsperrt");
-    setConfirm(null);
+  const handleToggleLock = async (userId) => {
+    try {
+      await api.request("PATCH", `/admin/users/${userId}/toggle-lock`);
+      setUsers((u) => u.map((usr) =>
+        usr.id === userId ? { ...usr, accountNonLocked: !usr.accountNonLocked } : usr
+      ));
+      const user = users.find((u) => u.id === userId);
+      toast(user.accountNonLocked ? "Account gesperrt" : "Account entsperrt");
+      setConfirm(null);
+    } catch (err) {
+      toast(err?.message || "Aktion fehlgeschlagen");
+    }
   };
 
-  const handleCreate = (newUser) => {
-    setUsers((u) => [...u, { ...newUser, id: Date.now(), createdAt: new Date().toISOString() }]);
-    toast("Benutzer angelegt");
-    setShowForm(false);
+  const handlePasswordReset = async (userId, newPassword) => {
+    try {
+      await api.request("PATCH", `/admin/users/${userId}/reset-password?newPassword=${encodeURIComponent(newPassword)}`);
+      toast("Passwort zurückgesetzt");
+      setConfirm(null);
+    } catch (err) {
+      toast(err?.message || "Passwort-Reset fehlgeschlagen");
+    }
+  };
+
+  const handleCreate = async (newUser) => {
+    try {
+      const created = await api.post("/admin/users", newUser);
+      setUsers((u) => [...u, created]);
+      toast("Benutzer angelegt");
+      setShowForm(false);
+    } catch (err) {
+      toast(err?.message || "Anlegen fehlgeschlagen");
+    }
   };
 
   const roleCounts = ROLES.reduce((acc, r) => ({
     ...acc, [r]: users.filter((u) => u.role === r).length,
   }), {});
+
+  if (loading) return <Spinner text="Benutzer laden …" />;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -385,8 +414,9 @@ export function AdminPage({ toast }) {
       {confirmAction && (
         <ConfirmDialog
           action={confirmAction}
-          onConfirm={() => {
+          onConfirm={(data) => {
             if (confirmAction.type === "lock") handleToggleLock(confirmAction.user.id);
+            if (confirmAction.type === "password") handlePasswordReset(confirmAction.user.id, data);
           }}
           onClose={() => setConfirm(null)}
         />
@@ -638,110 +668,63 @@ function CreateUserModal({ onSave, onClose }) {
 
 function ConfirmDialog({ action, onConfirm, onClose }) {
   const isLock  = action.type === "lock";
+  const isPw    = action.type === "password";
   const willLock = action.user.accountNonLocked;
+  const [newPw, setNewPw] = useState("");
+
+  const dialogStyle = {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+    zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+  };
+  const boxStyle = {
+    background: "#1e293b", border: "1px solid #334155", borderRadius: "12px", padding: 28,
+    maxWidth: 380, width: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", textAlign: "center",
+  };
+  const btnBase = {
+    padding: "9px 18px", borderRadius: "8px", cursor: "pointer", fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+  };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.7)",
-        backdropFilter: "blur(4px)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          background: "#1e293b",
-          border: "1px solid #334155",
-          borderRadius: "12px",
-          padding: 28,
-          maxWidth: 380,
-          width: "100%",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: willLock ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.12)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 16px",
-            fontSize: 24,
-          }}
-        >
-          {isLock && willLock ? "🔒" : "🔓"}
-        </div>
-        <h3
-          style={{
-            margin: "0 0 8px",
-            fontSize: 16,
-            fontWeight: 600,
-            color: "#f1f5f9",
-            fontFamily: "'Sora', sans-serif",
-          }}
-        >
-          {isLock && willLock ? "Account sperren?" : "Account entsperren?"}
+    <div style={dialogStyle}>
+      <div style={boxStyle}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600, color: "#f1f5f9", fontFamily: "'Sora', sans-serif" }}>
+          {isPw ? "Passwort zurücksetzen" : willLock ? "Account sperren?" : "Account entsperren?"}
         </h3>
-        <p
-          style={{
-            color: "#64748b",
-            fontSize: 13,
-            margin: "0 0 24px",
-            fontFamily: "'DM Sans', sans-serif",
-            lineHeight: 1.6,
-          }}
-        >
-          {willLock
-            ? `${action.user.displayName} kann sich nach dem Sperren nicht mehr anmelden.`
-            : `${action.user.displayName} erhält wieder Zugang zum System.`}
+        <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
+          {isPw
+            ? `Neues Passwort für ${action.user.displayName} setzen.`
+            : willLock
+              ? `${action.user.displayName} kann sich nach dem Sperren nicht mehr anmelden.`
+              : `${action.user.displayName} erhält wieder Zugang zum System.`}
         </p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button
-            onClick={onClose}
+        {isPw && (
+          <input
+            type="password"
+            value={newPw}
+            onChange={(e) => setNewPw(e.target.value)}
+            placeholder="Neues Passwort (mind. 8 Zeichen)"
             style={{
-              padding: "9px 18px",
-              borderRadius: "8px",
-              border: "1px solid #334155",
-              background: "transparent",
-              color: "#94a3b8",
-              cursor: "pointer",
-              fontSize: 13,
-              fontFamily: "'DM Sans', sans-serif",
-              transition: "all 150ms ease",
+              width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+              fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
+              fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", marginBottom: 20,
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
+          />
+        )}
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <button onClick={onClose} style={{ ...btnBase, border: "1px solid #334155", background: "transparent", color: "#94a3b8" }}>
             Abbrechen
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => isPw ? onConfirm(newPw) : onConfirm()}
+            disabled={isPw && newPw.length < 8}
             style={{
-              padding: "9px 18px",
-              borderRadius: "8px",
-              background: willLock ? "#ef4444" : "#10b981",
-              color: "#fff",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
-              fontFamily: "'DM Sans', sans-serif",
-              transition: "background 150ms ease",
+              ...btnBase, border: "none", color: "#fff", fontWeight: 600,
+              background: isPw ? "#6366f1" : willLock ? "#ef4444" : "#10b981",
+              opacity: isPw && newPw.length < 8 ? 0.5 : 1,
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = willLock ? "#dc2626" : "#059669")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = willLock ? "#ef4444" : "#10b981")}
           >
-            {willLock ? "Sperren" : "Entsperren"}
+            {isPw ? "Zurücksetzen" : willLock ? "Sperren" : "Entsperren"}
           </button>
         </div>
       </div>
