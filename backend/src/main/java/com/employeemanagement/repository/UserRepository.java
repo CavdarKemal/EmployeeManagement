@@ -18,8 +18,8 @@ public interface UserRepository extends JpaRepository<AppUser, Long> {
     @Query("""
         SELECT u FROM AppUser u
         WHERE :search IS NULL OR
-              LOWER(u.email)       LIKE LOWER(CONCAT('%', :search, '%')) OR
-              LOWER(u.displayName) LIKE LOWER(CONCAT('%', :search, '%'))
+              LOWER(u.email)       LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+              LOWER(u.displayName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
         """)
     Page<AppUser> search(@Param("search") String search, Pageable pageable);
 

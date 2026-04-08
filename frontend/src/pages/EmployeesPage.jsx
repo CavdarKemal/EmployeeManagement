@@ -75,19 +75,6 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
           options={["Engineering", "Product", "Design", "Human Resources", "Marketing", "Finance", "IT"]}
         />
         <Input label="Gehalt (€/Jahr)" type="number" value={form.salary} onChange={(e) => set("salary", e.target.value)} placeholder="75000" />
-        {!form.id && (
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
-              Foto (optional)
-            </label>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              onChange={(e) => setPhoto(e.target.files[0] || null)}
-              style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}
-            />
-          </div>
-        )}
         <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
           <input
             type="checkbox"
@@ -101,6 +88,19 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
           </label>
         </div>
       </div>
+      {!form.id && (
+        <div style={{ marginTop: 14 }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
+            Foto (optional, max. 5 MB, jpg/png/gif/webp)
+          </label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={(e) => setPhoto(e.target.files[0] || null)}
+            style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}
+          />
+        </div>
+      )}
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
         <Btn onClick={handleSave} disabled={saving}>{saving ? "Speichern …" : "Speichern"}</Btn>
