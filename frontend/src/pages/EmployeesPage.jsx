@@ -40,13 +40,13 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
     setSaving(true);
     try {
       const payload = { ...form, salary: Number(form.salary) };
+      const formData = new FormData();
+      formData.append("employee", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+      if (photo) formData.append("photo", photo);
       let result;
       if (form.id) {
-        result = await api.put(`/employees/${form.id}`, payload);
+        result = await api.putForm(`/employees/${form.id}`, formData);
       } else {
-        const formData = new FormData();
-        formData.append("employee", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-        if (photo) formData.append("photo", photo);
         result = await api.postForm("/employees", formData);
       }
       onSave(result);
@@ -88,19 +88,17 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
           </label>
         </div>
       </div>
-      {!form.id && (
-        <div style={{ marginTop: 14 }}>
-          <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
-            Foto (optional, max. 5 MB, jpg/png/gif/webp)
-          </label>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            onChange={(e) => setPhoto(e.target.files[0] || null)}
-            style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}
-          />
-        </div>
-      )}
+      <div style={{ marginTop: 14 }}>
+        <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
+          Foto (optional, max. 5 MB, jpg/png/gif/webp)
+        </label>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={(e) => setPhoto(e.target.files[0] || null)}
+          style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}
+        />
+      </div>
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
         <Btn onClick={handleSave} disabled={saving}>{saving ? "Speichern …" : "Speichern"}</Btn>

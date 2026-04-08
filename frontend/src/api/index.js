@@ -34,10 +34,10 @@ const api = {
   put:    (path, body) => api.request("PUT",    path, body),
   delete: (path)       => api.request("DELETE", path),
 
-  async postForm(path, formData) {
+  async sendForm(method, path, formData) {
     const token = localStorage.getItem("jwt");
     const res = await fetch(`${BASE}${path}`, {
-      method: "POST",
+      method,
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: formData,
     });
@@ -46,6 +46,9 @@ const api = {
     if (res.status === 204) return null;
     return res.json();
   },
+
+  postForm: (path, formData) => api.sendForm("POST", path, formData),
+  putForm:  (path, formData) => api.sendForm("PUT",  path, formData),
 };
 
 export default api;

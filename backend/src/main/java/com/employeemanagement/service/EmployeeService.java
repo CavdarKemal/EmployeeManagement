@@ -58,7 +58,7 @@ public class EmployeeService {
         return mapper.toDTO(saved);
     }
 
-    public EmployeeDTO update(Long id, EmployeeDTO dto) {
+    public EmployeeDTO update(Long id, EmployeeDTO dto, MultipartFile photo) {
         Employee existing = repo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Mitarbeiter", id));
 
@@ -67,6 +67,12 @@ public class EmployeeService {
             throw new BusinessException("E-Mail bereits vorhanden: " + dto.getEmail());
 
         mapper.updateEntity(dto, existing);
+
+        if (photo != null && !photo.isEmpty()) {
+            String photoUrl = savePhoto(photo, existing.getEmployeeNumber());
+            existing.setPhotoUrl(photoUrl);
+        }
+
         return mapper.toDTO(repo.save(existing));
     }
 
