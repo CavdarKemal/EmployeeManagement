@@ -20,6 +20,7 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
   const [form, setForm]     = useState(initial);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [photo, setPhoto]   = useState(null);
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
 
@@ -45,6 +46,7 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
       } else {
         const formData = new FormData();
         formData.append("employee", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+        if (photo) formData.append("photo", photo);
         result = await api.postForm("/employees", formData);
       }
       onSave(result);
@@ -73,6 +75,19 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
           options={["Engineering", "Product", "Design", "Human Resources", "Marketing", "Finance", "IT"]}
         />
         <Input label="Gehalt (€/Jahr)" type="number" value={form.salary} onChange={(e) => set("salary", e.target.value)} placeholder="75000" />
+        {!form.id && (
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
+              Foto (optional)
+            </label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={(e) => setPhoto(e.target.files[0] || null)}
+              style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}
+            />
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
           <input
             type="checkbox"
