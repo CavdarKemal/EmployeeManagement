@@ -118,6 +118,20 @@ function EmployeesPage({ toast }) {
   );
   const emp = employees.find((e) => e.id === selected);
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/employees/${id}`);
+      setEmployees((prev) => prev.filter((e) => e.id !== id));
+      if (selected === id) setSelected(null);
+      setConfirmDelete(null);
+      toast("Mitarbeiter gelöscht");
+    } catch {
+      toast("Löschen fehlgeschlagen");
+    }
+  };
+
   const handleSave = (saved) => {
     setEmployees((prev) => {
       const exists = prev.find((e) => e.id === saved.id);
@@ -311,9 +325,14 @@ function EmployeesPage({ toast }) {
                       </span>
                     </div>
                   </div>
-                  <Btn sm variant="secondary" onClick={() => { setEditEmp(emp); setShowForm(true); }}>
-                    ✏️ Bearbeiten
-                  </Btn>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <Btn sm variant="secondary" onClick={() => { setEditEmp(emp); setShowForm(true); }}>
+                      Bearbeiten
+                    </Btn>
+                    <Btn sm variant="danger" onClick={() => setConfirmDelete(emp)}>
+                      Löschen
+                    </Btn>
+                  </div>
                 </div>
               </div>
 
@@ -420,6 +439,18 @@ function EmployeesPage({ toast }) {
           onClose={() => { setShowForm(false); setEditEmp(null); }}
           toast={toast}
         />
+      )}
+
+      {confirmDelete && (
+        <Modal title="Mitarbeiter löschen" onClose={() => setConfirmDelete(null)} width={420}>
+          <p style={{ color: "#cbd5e1", fontSize: 14, fontFamily: "'DM Sans', sans-serif", margin: "0 0 20px" }}>
+            Soll <strong style={{ color: "#f1f5f9" }}>{confirmDelete.firstName} {confirmDelete.lastName}</strong> wirklich gelöscht werden?
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <Btn variant="ghost" onClick={() => setConfirmDelete(null)}>Abbrechen</Btn>
+            <Btn variant="danger" onClick={() => handleDelete(confirmDelete.id)}>Löschen</Btn>
+          </div>
+        </Modal>
       )}
     </div>
   );
