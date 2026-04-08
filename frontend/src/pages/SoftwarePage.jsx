@@ -7,6 +7,7 @@ import Badge from "../components/Badge.jsx";
 import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
+import Spinner from "../components/Spinner.jsx";
 
 const CAT_EMOJI = { PRODUCTIVITY: "📊", DEV_TOOLS: "🛠️", DESIGN: "🎨", OS: "💾" };
 
@@ -77,14 +78,14 @@ function SoftwarePage({ toast }) {
   const [showForm, setShowForm]   = useState(false);
   const [editSw, setEditSw]       = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/software?size=200").then((data) => {
-      if (data?.content) setSoftware(data.content);
-    }).catch(() => toast?.("Software konnte nicht geladen werden"));
-    api.get("/employees?size=200").then((data) => {
-      if (data?.content) setEmployees(data.content);
-    }).catch(() => {});
+    Promise.all([
+      api.get("/software?size=200").then((data) => { if (data?.content) setSoftware(data.content); }),
+      api.get("/employees?size=200").then((data) => { if (data?.content) setEmployees(data.content); }),
+    ]).catch(() => toast?.("Software konnte nicht geladen werden"))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleDelete = async (id) => {
@@ -105,6 +106,8 @@ function SoftwarePage({ toast }) {
     setAssignDialog(null);
     setEmpId("");
   };
+
+  if (loading) return <Spinner text="Software laden …" />;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

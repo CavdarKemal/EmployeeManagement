@@ -7,6 +7,7 @@ import Btn from "../components/Button.jsx";
 import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
+import Spinner from "../components/Spinner.jsx";
 
 const FILTER_LABELS = {
   ALL:         "Alle",
@@ -216,14 +217,14 @@ function HardwarePage({ toast }) {
   const [editHw, setEditHw] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/hardware?size=200").then((data) => {
-      if (data?.content) setHardware(data.content);
-    }).catch(() => toast?.("Hardware konnte nicht geladen werden"));
-    api.get("/employees?size=200").then((data) => {
-      if (data?.content) setEmployees(data.content);
-    }).catch(() => {});
+    Promise.all([
+      api.get("/hardware?size=200").then((data) => { if (data?.content) setHardware(data.content); }),
+      api.get("/employees?size=200").then((data) => { if (data?.content) setEmployees(data.content); }),
+    ]).catch(() => toast?.("Hardware konnte nicht geladen werden"))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = hardware.filter((h) => {
@@ -262,6 +263,7 @@ function HardwarePage({ toast }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
+      {loading && <Spinner text="Hardware laden …" />}
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         {/* Search */}

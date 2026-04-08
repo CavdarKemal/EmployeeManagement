@@ -8,6 +8,7 @@ import Card from "../components/Card.jsx";
 import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
+import Spinner from "../components/Spinner.jsx";
 
 
 // ── Employee Form Modal ──────────────────────────────────────
@@ -96,6 +97,7 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
 // ── Employees Page ───────────────────────────────────────────
 function EmployeesPage({ toast }) {
   const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api.get("/employees?size=200").then((data) => {
@@ -103,7 +105,7 @@ function EmployeesPage({ toast }) {
     }).catch((err) => {
       toast?.("Mitarbeiter konnten nicht geladen werden");
       console.error("GET /employees failed:", err);
-    });
+    }).finally(() => setLoading(false));
   }, []);
   const [selected, setSelected]   = useState(null);
   const [search, setSearch]       = useState("");
@@ -179,7 +181,8 @@ function EmployeesPage({ toast }) {
         <Btn onClick={() => { setEditEmp(null); setShowForm(true); }}>＋ Mitarbeiter</Btn>
       </div>
 
-      <div style={{ display: "flex", gap: 0, flex: 1, minHeight: 0, background: "#1e293b", borderRadius: "12px", border: "1px solid #334155", overflow: "hidden" }}>
+      {loading && <Spinner text="Mitarbeiter laden …" />}
+      <div style={{ display: loading ? "none" : "flex", gap: 0, flex: 1, minHeight: 0, background: "#1e293b", borderRadius: "12px", border: "1px solid #334155", overflow: "hidden" }}>
         {/* Master List */}
         <div
           style={{
