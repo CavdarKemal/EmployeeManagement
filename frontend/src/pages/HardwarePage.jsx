@@ -244,21 +244,28 @@ function HardwarePage({ toast }) {
     }
   };
 
-  const handleLoan = (hwId, empId, returnDate, notes) => {
-    setLoans((l) => [
-      ...l,
-      { id: Date.now(), hardwareId: hwId, employeeId: empId, loanDate: new Date().toISOString().slice(0, 10), returnedAt: null, returnDate, notes },
-    ]);
-    setHardware((h) => h.map((hw) => (hw.id === hwId ? { ...hw, status: "LOANED" } : hw)));
-    toast("Hardware erfolgreich ausgeliehen 📤");
+  const handleLoan = async (hwId, empId, returnDate, notes) => {
+    try {
+      await api.post(`/loans/hardware/${hwId}/loan`, {
+        employeeId: empId,
+        returnDate: returnDate || null,
+        notes: notes || null,
+      });
+      setHardware((h) => h.map((hw) => (hw.id === hwId ? { ...hw, status: "LOANED" } : hw)));
+      toast("Hardware erfolgreich ausgeliehen");
+    } catch (err) {
+      toast(err?.message || "Ausleihe fehlgeschlagen");
+    }
   };
 
-  const handleReturn = (hwId) => {
-    setLoans((l) =>
-      l.map((loan) => (loan.hardwareId === hwId && !loan.returnedAt ? { ...loan, returnedAt: new Date().toISOString() } : loan))
-    );
-    setHardware((h) => h.map((hw) => (hw.id === hwId ? { ...hw, status: "AVAILABLE" } : hw)));
-    toast("Hardware zurückgenommen 📥");
+  const handleReturn = async (hwId) => {
+    try {
+      await api.post(`/loans/hardware/${hwId}/return`);
+      setHardware((h) => h.map((hw) => (hw.id === hwId ? { ...hw, status: "AVAILABLE" } : hw)));
+      toast("Hardware zurückgenommen");
+    } catch (err) {
+      toast(err?.message || "Rückgabe fehlgeschlagen");
+    }
   };
 
   return (
