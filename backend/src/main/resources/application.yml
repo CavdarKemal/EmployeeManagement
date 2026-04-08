@@ -38,7 +38,7 @@ springdoc:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:MindestenS32ZeichenLangerGeheimSchluessel!}
+    secret: ${JWT_SECRET:#{T(java.util.UUID).randomUUID().toString() + T(java.util.UUID).randomUUID().toString()}}
     expiration-ms: 86400000   # 24 Stunden
   upload:
     dir: ${UPLOAD_DIR:./uploads/photos}
