@@ -1,22 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/index.js";
 import { T } from "../components/tokens.js";
 import Btn from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import Badge from "../components/Badge.jsx";
 import Modal from "../components/Modal.jsx";
+import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
-
-// Mock data
-const INITIAL_EMPLOYEES = [
-  { id: 1, firstName: "Maximilian", lastName: "Bauer",  active: true },
-  { id: 2, firstName: "Sophie",     lastName: "Müller", active: true },
-  { id: 3, firstName: "Jonas",      lastName: "Weber",  active: true },
-];
-const INITIAL_SOFTWARE = [
-  { id: 1, name: "Microsoft 365",           vendor: "Microsoft", version: "2024",   category: "PRODUCTIVITY", licenseType: "SUBSCRIPTION", totalLicenses: 50, usedLicenses: 32, costPerLicense: 12.50, renewalDate: "2025-01-01" },
-  { id: 2, name: "JetBrains IntelliJ IDEA", vendor: "JetBrains", version: "2024.1", category: "DEV_TOOLS",    licenseType: "SUBSCRIPTION", totalLicenses: 15, usedLicenses: 8,  costPerLicense: 24.90, renewalDate: "2025-06-30" },
-  { id: 3, name: "Figma Business",           vendor: "Figma",     version: "Web",    category: "DESIGN",       licenseType: "SUBSCRIPTION", totalLicenses: 10, usedLicenses: 7,  costPerLicense: 45.00, renewalDate: "2025-09-01" },
-];
 
 const CAT_EMOJI = { PRODUCTIVITY: "📊", DEV_TOOLS: "🛠️", DESIGN: "🎨", OS: "💾" };
 
@@ -27,11 +17,70 @@ const CAT_COLORS = {
   OS:           { color: "#64748b", bg: "rgba(100,116,139,0.12)" },
 };
 
+// ── Software Form Modal ──────────────────────────────────────
+function SoftwareFormModal({ onSave, onClose, toast }) {
+  const [form, setForm] = useState({
+    name: "", vendor: "", version: "", category: "PRODUCTIVITY",
+    licenseType: "SUBSCRIPTION", totalLicenses: 1, costPerLicense: "", renewalDate: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
+
+  const handleSave = async () => {
+    if (!form.name) { setErrors({ name: "Pflichtfeld" }); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        totalLicenses: Number(form.totalLicenses),
+        costPerLicense: form.costPerLicense ? Number(form.costPerLicense) : null,
+      };
+      const result = await api.post("/software", payload);
+      onSave(result);
+    } catch (err) {
+      toast?.(err?.message || "Speichern fehlgeschlagen");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Neue Software" onClose={onClose} width={600}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Input label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} required error={errors.name} placeholder="Microsoft 365" />
+        <Input label="Hersteller" value={form.vendor} onChange={(e) => set("vendor", e.target.value)} placeholder="Microsoft" />
+        <Input label="Version" value={form.version} onChange={(e) => set("version", e.target.value)} placeholder="2024" />
+        <Select label="Kategorie" value={form.category} onChange={(e) => set("category", e.target.value)} options={["PRODUCTIVITY", "DEV_TOOLS", "DESIGN", "OS"]} />
+        <Select label="Lizenztyp" value={form.licenseType} onChange={(e) => set("licenseType", e.target.value)} options={["SUBSCRIPTION", "PERPETUAL", "OPEN_SOURCE"]} />
+        <Input label="Anzahl Lizenzen" type="number" value={form.totalLicenses} onChange={(e) => set("totalLicenses", e.target.value)} placeholder="10" />
+        <Input label="Kosten/Lizenz/Monat (€)" type="number" value={form.costPerLicense} onChange={(e) => set("costPerLicense", e.target.value)} placeholder="12.50" />
+        <Input label="Erneuerungsdatum" type="date" value={form.renewalDate} onChange={(e) => set("renewalDate", e.target.value)} />
+      </div>
+      <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
+        <Btn onClick={handleSave} disabled={saving}>{saving ? "Speichern …" : "Speichern"}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 function SoftwarePage({ toast }) {
-  const [software, setSoftware]   = useState(INITIAL_SOFTWARE);
+  const [software, setSoftware]   = useState([]);
   const [assignDialog, setAssignDialog] = useState(null);
-  const [employees]               = useState(INITIAL_EMPLOYEES);
+  const [employees, setEmployees] = useState([]);
   const [empId, setEmpId]         = useState("");
+  const [showForm, setShowForm]   = useState(false);
+
+  useEffect(() => {
+    api.get("/software?size=200").then((data) => {
+      if (data?.content) setSoftware(data.content);
+    }).catch(() => toast?.("Software konnte nicht geladen werden"));
+    api.get("/employees?size=200").then((data) => {
+      if (data?.content) setEmployees(data.content);
+    }).catch(() => {});
+  }, []);
 
   const handleAssign = (swId) => {
     if (!empId) return;
@@ -44,7 +93,7 @@ function SoftwarePage({ toast }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <Btn>＋ Software</Btn>
+        <Btn onClick={() => setShowForm(true)}>＋ Software</Btn>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
@@ -194,6 +243,18 @@ function SoftwarePage({ toast }) {
           );
         })}
       </div>
+
+      {showForm && (
+        <SoftwareFormModal
+          onSave={(saved) => {
+            setSoftware((prev) => [...prev, saved]);
+            setShowForm(false);
+            toast("Software angelegt");
+          }}
+          onClose={() => setShowForm(false)}
+          toast={toast}
+        />
+      )}
 
       {assignDialog && (
         <Modal

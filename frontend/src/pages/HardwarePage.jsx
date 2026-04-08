@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/index.js";
 import { T, HW_EMOJI, STATUS } from "../components/tokens.js";
 import Avatar from "../components/Avatar.jsx";
 import Badge from "../components/Badge.jsx";
@@ -6,22 +7,6 @@ import Btn from "../components/Button.jsx";
 import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
-
-// Mock data
-const INITIAL_EMPLOYEES = [
-  { id: 1, employeeNumber: "EMP-001", firstName: "Maximilian", lastName: "Bauer",  active: true },
-  { id: 2, employeeNumber: "EMP-002", firstName: "Sophie",     lastName: "Müller", active: true },
-  { id: 3, employeeNumber: "EMP-003", firstName: "Jonas",      lastName: "Weber",  active: true },
-];
-const INITIAL_HARDWARE = [
-  { id: 1, assetTag: "HW-0001", name: 'MacBook Pro 16"',      category: "LAPTOP",  manufacturer: "Apple",  model: "MK183D/A",  serialNumber: "C02XY12345", status: "AVAILABLE", purchasePrice: 2899, warrantyUntil: "2025-06-01" },
-  { id: 2, assetTag: "HW-0002", name: 'Dell UltraSharp 27"',  category: "MONITOR", manufacturer: "Dell",   model: "U2722D",    serialNumber: "D3L7890",   status: "LOANED",    purchasePrice: 549,  warrantyUntil: "2025-06-15", loanedTo: 1 },
-  { id: 3, assetTag: "HW-0003", name: "ThinkPad X1 Carbon",   category: "LAPTOP",  manufacturer: "Lenovo", model: "Gen 10",    serialNumber: "LNV4567",   status: "AVAILABLE", purchasePrice: 1899, warrantyUntil: "2024-11-10" },
-  { id: 4, assetTag: "HW-0004", name: 'iPad Pro 12.9"',       category: "TABLET",  manufacturer: "Apple",  model: "MNXR3FD/A", serialNumber: "DMPH1234",  status: "AVAILABLE", purchasePrice: 1299, warrantyUntil: "2026-02-20" },
-];
-const INITIAL_LOANS = [
-  { id: 1, hardwareId: 2, employeeId: 1, loanDate: "2024-11-01", returnedAt: null },
-];
 
 const FILTER_LABELS = {
   ALL:         "Alle",
@@ -162,15 +147,79 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
   );
 }
 
+// ── Hardware Form Modal ──────────────────────────────────────
+function HardwareFormModal({ onSave, onClose, toast }) {
+  const [form, setForm] = useState({
+    assetTag: "", name: "", category: "LAPTOP", manufacturer: "", model: "",
+    serialNumber: "", purchasePrice: "", warrantyUntil: "", status: "AVAILABLE",
+  });
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
+
+  const validate = () => {
+    const e = {};
+    if (!form.assetTag) e.assetTag = "Pflichtfeld";
+    if (!form.name) e.name = "Pflichtfeld";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    setSaving(true);
+    try {
+      const payload = { ...form, purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : null };
+      const result = await api.post("/hardware", payload);
+      onSave(result);
+    } catch (err) {
+      toast?.(err?.message || "Speichern fehlgeschlagen");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Neue Hardware" onClose={onClose} width={600}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <Input label="Asset-Tag" value={form.assetTag} onChange={(e) => set("assetTag", e.target.value)} required error={errors.assetTag} placeholder="HW-0005" />
+        <Input label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} required error={errors.name} placeholder='MacBook Pro 16"' />
+        <Select label="Kategorie" value={form.category} onChange={(e) => set("category", e.target.value)} options={["LAPTOP", "MONITOR", "TABLET", "PHONE", "DESKTOP", "ACCESSORY"]} />
+        <Select label="Status" value={form.status} onChange={(e) => set("status", e.target.value)} options={["AVAILABLE", "LOANED", "MAINTENANCE", "RETIRED"]} />
+        <Input label="Hersteller" value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)} placeholder="Apple" />
+        <Input label="Modell" value={form.model} onChange={(e) => set("model", e.target.value)} placeholder="MK183D/A" />
+        <Input label="Seriennummer" value={form.serialNumber} onChange={(e) => set("serialNumber", e.target.value)} />
+        <Input label="Kaufpreis (€)" type="number" value={form.purchasePrice} onChange={(e) => set("purchasePrice", e.target.value)} placeholder="2899" />
+        <Input label="Garantie bis" type="date" value={form.warrantyUntil} onChange={(e) => set("warrantyUntil", e.target.value)} />
+      </div>
+      <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
+        <Btn onClick={handleSave} disabled={saving}>{saving ? "Speichern …" : "Speichern"}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Hardware Page ────────────────────────────────────────────
 function HardwarePage({ toast }) {
-  const [hardware, setHardware] = useState(INITIAL_HARDWARE);
-  const [employees]             = useState(INITIAL_EMPLOYEES);
-  const [loans, setLoans]       = useState(INITIAL_LOANS);
+  const [hardware, setHardware] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loans, setLoans]       = useState([]);
   const [search, setSearch]     = useState("");
   const [filter, setFilter]     = useState("ALL");
   const [loanDialog, setLoanDialog] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+
+  useEffect(() => {
+    api.get("/hardware?size=200").then((data) => {
+      if (data?.content) setHardware(data.content);
+    }).catch(() => toast?.("Hardware konnte nicht geladen werden"));
+    api.get("/employees?size=200").then((data) => {
+      if (data?.content) setEmployees(data.content);
+    }).catch(() => {});
+  }, []);
 
   const filtered = hardware.filter((h) => {
     const matchSearch = `${h.name} ${h.assetTag} ${h.manufacturer}`.toLowerCase().includes(search.toLowerCase());
@@ -259,7 +308,7 @@ function HardwarePage({ toast }) {
           })}
         </div>
 
-        <Btn>＋ Hardware</Btn>
+        <Btn onClick={() => setShowForm(true)}>＋ Hardware</Btn>
       </div>
 
       {/* Table */}
@@ -391,6 +440,18 @@ function HardwarePage({ toast }) {
           onLoan={handleLoan}
           onReturn={handleReturn}
           onClose={() => setLoanDialog(null)}
+        />
+      )}
+
+      {showForm && (
+        <HardwareFormModal
+          onSave={(saved) => {
+            setHardware((prev) => [...prev, saved]);
+            setShowForm(false);
+            toast("Hardware angelegt");
+          }}
+          onClose={() => setShowForm(false)}
+          toast={toast}
         />
       )}
     </div>
