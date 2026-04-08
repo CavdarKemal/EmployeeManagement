@@ -36,6 +36,19 @@ public class SoftwareController {
                 .body(created);
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Software aktualisieren")
+    public ResponseEntity<SoftwareDTO> update(@PathVariable Long id, @Valid @RequestBody SoftwareDTO dto) {
+        return ResponseEntity.ok(service.update(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Software löschen")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{softwareId}/assign/{employeeId}")
     @Operation(summary = "Softwarelizenz einem Mitarbeiter zuweisen")
     public ResponseEntity<Void> assignLicense(

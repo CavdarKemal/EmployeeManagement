@@ -18,11 +18,12 @@ const CAT_COLORS = {
 };
 
 // ── Software Form Modal ──────────────────────────────────────
-function SoftwareFormModal({ onSave, onClose, toast }) {
-  const [form, setForm] = useState({
+function SoftwareFormModal({ software, onSave, onClose, toast }) {
+  const initial = software ?? {
     name: "", vendor: "", version: "", category: "PRODUCTIVITY",
     licenseType: "SUBSCRIPTION", totalLicenses: 1, costPerLicense: "", renewalDate: "",
-  });
+  };
+  const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -37,7 +38,9 @@ function SoftwareFormModal({ onSave, onClose, toast }) {
         totalLicenses: Number(form.totalLicenses),
         costPerLicense: form.costPerLicense ? Number(form.costPerLicense) : null,
       };
-      const result = await api.post("/software", payload);
+      const result = form.id
+        ? await api.put(`/software/${form.id}`, payload)
+        : await api.post("/software", payload);
       onSave(result);
     } catch (err) {
       toast?.(err?.message || "Speichern fehlgeschlagen");
@@ -47,7 +50,7 @@ function SoftwareFormModal({ onSave, onClose, toast }) {
   };
 
   return (
-    <Modal title="Neue Software" onClose={onClose} width={600}>
+    <Modal title={software ? "Software bearbeiten" : "Neue Software"} onClose={onClose} width={600}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <Input label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} required error={errors.name} placeholder="Microsoft 365" />
         <Input label="Hersteller" value={form.vendor} onChange={(e) => set("vendor", e.target.value)} placeholder="Microsoft" />
@@ -72,6 +75,8 @@ function SoftwarePage({ toast }) {
   const [employees, setEmployees] = useState([]);
   const [empId, setEmpId]         = useState("");
   const [showForm, setShowForm]   = useState(false);
+  const [editSw, setEditSw]       = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     api.get("/software?size=200").then((data) => {
@@ -81,6 +86,17 @@ function SoftwarePage({ toast }) {
       if (data?.content) setEmployees(data.content);
     }).catch(() => {});
   }, []);
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/software/${id}`);
+      setSoftware((prev) => prev.filter((s) => s.id !== id));
+      setConfirmDelete(null);
+      toast("Software gelöscht");
+    } catch (err) {
+      toast(err?.message || "Löschen fehlgeschlagen");
+    }
+  };
 
   const handleAssign = (swId) => {
     if (!empId) return;
@@ -228,16 +244,13 @@ function SoftwarePage({ toast }) {
                 </div>
               )}
 
-              {/* Action */}
-              <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
-                <Btn
-                  sm
-                  variant="secondary"
-                  onClick={() => setAssignDialog(sw)}
-                  disabled={sw.usedLicenses >= sw.totalLicenses}
-                >
+              {/* Actions */}
+              <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                <Btn sm variant="secondary" onClick={() => setAssignDialog(sw)} disabled={sw.usedLicenses >= sw.totalLicenses}>
                   Zuweisen
                 </Btn>
+                <Btn sm variant="secondary" onClick={() => { setEditSw(sw); setShowForm(true); }}>Bearbeiten</Btn>
+                <Btn sm variant="danger" onClick={() => setConfirmDelete(sw)}>Löschen</Btn>
               </div>
             </Card>
           );
@@ -246,14 +259,31 @@ function SoftwarePage({ toast }) {
 
       {showForm && (
         <SoftwareFormModal
+          software={editSw}
           onSave={(saved) => {
-            setSoftware((prev) => [...prev, saved]);
+            setSoftware((prev) => {
+              const exists = prev.find((s) => s.id === saved.id);
+              return exists ? prev.map((s) => (s.id === saved.id ? saved : s)) : [...prev, saved];
+            });
             setShowForm(false);
-            toast("Software angelegt");
+            setEditSw(null);
+            toast(editSw ? "Software gespeichert" : "Software angelegt");
           }}
-          onClose={() => setShowForm(false)}
+          onClose={() => { setShowForm(false); setEditSw(null); }}
           toast={toast}
         />
+      )}
+
+      {confirmDelete && (
+        <Modal title="Software löschen" onClose={() => setConfirmDelete(null)} width={420}>
+          <p style={{ color: "#cbd5e1", fontSize: 14, fontFamily: "'DM Sans', sans-serif", margin: "0 0 20px" }}>
+            Soll <strong style={{ color: "#f1f5f9" }}>{confirmDelete.name}</strong> wirklich gelöscht werden?
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <Btn variant="ghost" onClick={() => setConfirmDelete(null)}>Abbrechen</Btn>
+            <Btn variant="danger" onClick={() => handleDelete(confirmDelete.id)}>Löschen</Btn>
+          </div>
+        </Modal>
       )}
 
       {assignDialog && (

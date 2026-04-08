@@ -148,11 +148,12 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
 }
 
 // ── Hardware Form Modal ──────────────────────────────────────
-function HardwareFormModal({ onSave, onClose, toast }) {
-  const [form, setForm] = useState({
+function HardwareFormModal({ hardware, onSave, onClose, toast }) {
+  const initial = hardware ?? {
     assetTag: "", name: "", category: "LAPTOP", manufacturer: "", model: "",
     serialNumber: "", purchasePrice: "", warrantyUntil: "", status: "AVAILABLE",
-  });
+  };
+  const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -171,7 +172,9 @@ function HardwareFormModal({ onSave, onClose, toast }) {
     setSaving(true);
     try {
       const payload = { ...form, purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : null };
-      const result = await api.post("/hardware", payload);
+      const result = form.id
+        ? await api.put(`/hardware/${form.id}`, payload)
+        : await api.post("/hardware", payload);
       onSave(result);
     } catch (err) {
       toast?.(err?.message || "Speichern fehlgeschlagen");
@@ -181,7 +184,7 @@ function HardwareFormModal({ onSave, onClose, toast }) {
   };
 
   return (
-    <Modal title="Neue Hardware" onClose={onClose} width={600}>
+    <Modal title={hardware ? "Hardware bearbeiten" : "Neue Hardware"} onClose={onClose} width={600}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <Input label="Asset-Tag" value={form.assetTag} onChange={(e) => set("assetTag", e.target.value)} required error={errors.assetTag} placeholder="HW-0005" />
         <Input label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} required error={errors.name} placeholder='MacBook Pro 16"' />
@@ -210,6 +213,8 @@ function HardwarePage({ toast }) {
   const [filter, setFilter]     = useState("ALL");
   const [loanDialog, setLoanDialog] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [editHw, setEditHw] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
@@ -226,6 +231,17 @@ function HardwarePage({ toast }) {
     const matchFilter = filter === "ALL" || h.status === filter;
     return matchSearch && matchFilter;
   });
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/hardware/${id}`);
+      setHardware((prev) => prev.filter((h) => h.id !== id));
+      setConfirmDelete(null);
+      toast("Hardware gelöscht");
+    } catch (err) {
+      toast(err?.message || "Löschen fehlgeschlagen");
+    }
+  };
 
   const handleLoan = (hwId, empId, returnDate, notes) => {
     setLoans((l) => [
@@ -419,11 +435,15 @@ function HardwarePage({ toast }) {
                     )}
                   </td>
                   <td style={{ padding: "14px 14px" }}>
-                    {hw.status !== "RETIRED" && (
-                      <Btn sm variant="secondary" onClick={() => setLoanDialog(hw)}>
-                        {hw.status === "LOANED" ? "📥 Rückgabe" : "📤 Ausleihen"}
-                      </Btn>
-                    )}
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {hw.status !== "RETIRED" && (
+                        <Btn sm variant="secondary" onClick={() => setLoanDialog(hw)}>
+                          {hw.status === "LOANED" ? "Rückgabe" : "Ausleihen"}
+                        </Btn>
+                      )}
+                      <Btn sm variant="secondary" onClick={() => { setEditHw(hw); setShowForm(true); }}>Bearbeiten</Btn>
+                      <Btn sm variant="danger" onClick={() => setConfirmDelete(hw)}>Löschen</Btn>
+                    </div>
                   </td>
                 </tr>
               );
@@ -445,14 +465,31 @@ function HardwarePage({ toast }) {
 
       {showForm && (
         <HardwareFormModal
+          hardware={editHw}
           onSave={(saved) => {
-            setHardware((prev) => [...prev, saved]);
+            setHardware((prev) => {
+              const exists = prev.find((h) => h.id === saved.id);
+              return exists ? prev.map((h) => (h.id === saved.id ? saved : h)) : [...prev, saved];
+            });
             setShowForm(false);
-            toast("Hardware angelegt");
+            setEditHw(null);
+            toast(editHw ? "Hardware gespeichert" : "Hardware angelegt");
           }}
-          onClose={() => setShowForm(false)}
+          onClose={() => { setShowForm(false); setEditHw(null); }}
           toast={toast}
         />
+      )}
+
+      {confirmDelete && (
+        <Modal title="Hardware löschen" onClose={() => setConfirmDelete(null)} width={420}>
+          <p style={{ color: "#cbd5e1", fontSize: 14, fontFamily: "'DM Sans', sans-serif", margin: "0 0 20px" }}>
+            Soll <strong style={{ color: "#f1f5f9" }}>{confirmDelete.name}</strong> ({confirmDelete.assetTag}) wirklich gelöscht werden?
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <Btn variant="ghost" onClick={() => setConfirmDelete(null)}>Abbrechen</Btn>
+            <Btn variant="danger" onClick={() => handleDelete(confirmDelete.id)}>Löschen</Btn>
+          </div>
+        </Modal>
       )}
     </div>
   );

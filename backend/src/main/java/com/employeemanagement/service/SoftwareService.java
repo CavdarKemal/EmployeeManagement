@@ -61,6 +61,30 @@ public class SoftwareService {
                 .build();
     }
 
+    public SoftwareDTO update(Long id, SoftwareDTO dto) {
+        Software existing = softwareRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Software", id));
+        existing.setName(dto.getName());
+        existing.setVendor(dto.getVendor());
+        existing.setVersion(dto.getVersion());
+        existing.setCategory(dto.getCategory());
+        existing.setLicenseType(dto.getLicenseType());
+        if (dto.getTotalLicenses() != null) existing.setTotalLicenses(dto.getTotalLicenses());
+        existing.setCostPerLicense(dto.getCostPerLicense());
+        existing.setRenewalDate(dto.getRenewalDate());
+        existing.setNotes(dto.getNotes());
+        return toDTO(softwareRepo.save(existing));
+    }
+
+    public void delete(Long id) {
+        Software sw = softwareRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Software", id));
+        if (sw.getUsedLicenses() > 0)
+            throw new BusinessException("Software hat noch zugewiesene Lizenzen und kann nicht gelöscht werden");
+        softwareRepo.delete(sw);
+        log.info("Software gelöscht: {}", id);
+    }
+
     public void assignLicense(Long softwareId, Long employeeId, String licenseKey) {
         Software sw = softwareRepo.findById(softwareId)
                 .orElseThrow(() -> new ResourceNotFoundException("Software", softwareId));
