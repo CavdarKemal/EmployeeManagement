@@ -20,12 +20,12 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
         SELECT e FROM Employee e
         WHERE e.active = true
           AND (:search IS NULL OR
-               LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.lastName)  LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.email)     LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.department) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.position)   LIKE LOWER(CONCAT('%', :search, '%')) OR
-               e.employeeNumber    LIKE CONCAT('%', :search, '%'))
+               LOWER(e.firstName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+               LOWER(e.lastName)  LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+               LOWER(e.email)     LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+               LOWER(e.department) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+               LOWER(e.position)   LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+               e.employeeNumber    LIKE CONCAT('%', CAST(:search AS string), '%'))
         """)
     Page<Employee> searchActive(@Param("search") String search, Pageable pageable);
 
