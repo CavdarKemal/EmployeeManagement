@@ -15,10 +15,7 @@ function LoginPage() {
     try {
       await login(email, pass);
     } catch {
-      // Demo: ignoriere Fehler und logge direkt ein (Mock-Modus)
-      localStorage.setItem("jwt", "DEMO_TOKEN");
-      localStorage.setItem("userEmail", email);
-      window.location.reload();
+      setErr("Anmeldung fehlgeschlagen. Bitte E-Mail und Passwort prüfen.");
     } finally {
       setLoading(false);
     }
