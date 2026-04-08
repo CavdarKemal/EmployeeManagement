@@ -34,7 +34,7 @@ public class SoftwareService {
                 .version(dto.getVersion())
                 .category(dto.getCategory())
                 .licenseType(dto.getLicenseType())
-                .totalLicenses(dto.getTotalLicenses())
+                .totalLicenses(dto.getTotalLicenses() != null ? dto.getTotalLicenses() : 1)
                 .costPerLicense(dto.getCostPerLicense())
                 .renewalDate(dto.getRenewalDate())
                 .notes(dto.getNotes())
