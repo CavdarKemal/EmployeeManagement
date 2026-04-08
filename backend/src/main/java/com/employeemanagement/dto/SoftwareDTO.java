@@ -22,8 +22,10 @@ public class SoftwareDTO {
     private String version;
     private String category;
     private String licenseType;
-    private int totalLicenses;
-    private int usedLicenses;
+    @Builder.Default
+    private int totalLicenses = 1;
+    @Builder.Default
+    private int usedLicenses = 0;
     private BigDecimal costPerLicense;
     private LocalDate renewalDate;
     private String notes;
