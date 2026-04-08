@@ -1,0 +1,17 @@
+# Produktions-Overrides — zusammen mit docker-compose.yml verwenden:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+
+  postgres:
+    ports: []   # PostgreSQL NICHT nach außen exponieren (nur intern)
+
+  backend:
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseContainerSupport"
+      LOGGING_LEVEL_ROOT: WARN
+      LOGGING_LEVEL_COM_EMPLOYEEMANAGEMENT: INFO
+
+  frontend:
+    ports:
+      - "3000:80"   # nginx hört auf 3000, VPS-nginx leitet weiter

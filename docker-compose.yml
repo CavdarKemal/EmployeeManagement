@@ -1,0 +1,87 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: employeemanagement-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-employeemanagement}
+      POSTGRES_USER:     ${POSTGRES_USER:-employeemanagement}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"          # nur für direkten DB-Zugriff; in Prod entfernen
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-employeemanagement} -d ${POSTGRES_DB:-employeemanagement}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - employeemanagement-net
+
+  # ── Backend (Spring Boot) ───────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        JAR_FILE: target/employeemanagement-backend-1.0.0.jar
+    container_name: employeemanagement-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL:      jdbc:postgresql://postgres:5432/${POSTGRES_DB:-employeemanagement}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-employeemanagement}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED:      "true"
+      APP_JWT_SECRET:             ${JWT_SECRET:?JWT_SECRET muss in .env gesetzt sein}
+      APP_JWT_EXPIRATION_MS:      ${JWT_EXPIRATION_MS:-86400000}
+      APP_UPLOAD_DIR:             /app/uploads
+      JAVA_OPTS:                  "-Xms256m -Xmx512m"
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "8082:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - employeemanagement-net
+
+  # ── Frontend (React + nginx) ────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    container_name: employeemanagement-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    networks:
+      - employeemanagement-net
+
+volumes:
+  pgdata:
+    name: employeemanagement-pgdata
+  uploads:
+    name: employeemanagement-uploads
+
+networks:
+  employeemanagement-net:
+    name: employeemanagement-network
+    driver: bridge
