@@ -412,6 +412,40 @@ docker compose down -v
 
 ---
 
+## Wichtig: docker-compose.yml muss im Repo bleiben!
+
+Die `docker-compose.yml` (und die anderen compose-Dateien) **dürfen nicht aus dem
+Repo entfernt oder verschoben werden**. Der VPS deployt mit:
+
+```bash
+cd /opt/employeemanagement   # ← Git-Repo-Klon
+docker compose up -d          # ← sucht docker-compose.yml im aktuellen Verzeichnis
+```
+
+Ohne `docker-compose.yml` im Repo findet Docker auf dem Server nichts → Deployment
+bricht ab.
+
+### Zentrale Steuerung auf dem lokalen Entwicklungs-PC
+
+Wenn du alle Docker-Projekte von einer zentralen Stelle steuern willst
+(z.B. `E:\Projekte\ClaudeCode\docker\`), nutze den `-f`-Parameter von
+Docker Compose. Damit verweist du auf die Datei im Projekt, ohne sie
+zu verschieben:
+
+```powershell
+# Aus beliebigem Verzeichnis heraus:
+docker compose -f E:\Projekte\ClaudeCode\EmployeeManagement\docker-compose.yml up -d
+
+# Oder ein Wrapper-Script in E:\Projekte\ClaudeCode\docker\em.cmd:
+@echo off
+docker compose -f E:\Projekte\ClaudeCode\EmployeeManagement\docker-compose.yml %*
+```
+
+Dann kannst du von überall `em up -d`, `em ps`, `em logs backend` etc. ausführen —
+die compose-Dateien bleiben aber im Repo und das VPS-Deployment funktioniert weiter.
+
+---
+
 =======================================================================================================================
 # Manuell auf dem Hetzner-Server ausführen (nach Code-Änderungen)
 =======================================================================================================================
