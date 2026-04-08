@@ -99,12 +99,17 @@ function SoftwarePage({ toast }) {
     }
   };
 
-  const handleAssign = (swId) => {
+  const handleAssign = async (swId) => {
     if (!empId) return;
-    setSoftware((s) => s.map((sw) => sw.id === swId ? { ...sw, usedLicenses: sw.usedLicenses + 1 } : sw));
-    toast("Lizenz zugewiesen ✅");
-    setAssignDialog(null);
-    setEmpId("");
+    try {
+      await api.post(`/software/${swId}/assign/${empId}`);
+      setSoftware((s) => s.map((sw) => sw.id === swId ? { ...sw, usedLicenses: (sw.usedLicenses || 0) + 1 } : sw));
+      toast("Lizenz zugewiesen");
+      setAssignDialog(null);
+      setEmpId("");
+    } catch (err) {
+      toast(err?.message || "Zuweisung fehlgeschlagen");
+    }
   };
 
   if (loading) return <Spinner text="Software laden …" />;
