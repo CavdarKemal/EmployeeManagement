@@ -91,6 +91,7 @@ public class SoftwareService {
             var sw = a.getSoftware();
             return java.util.Map.<String, Object>of(
                 "id", a.getId(),
+                "softwareId", sw.getId(),
                 "softwareName", sw.getName(),
                 "vendor", sw.getVendor() != null ? sw.getVendor() : "",
                 "assignedDate", a.getAssignedDate().toString(),

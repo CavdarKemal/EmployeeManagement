@@ -433,8 +433,17 @@ function EmployeesPage({ toast }) {
                             <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{l.hardwareName}</div>
                             <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{l.assetTag}</div>
                           </div>
-                          <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
-                            seit {new Date(l.loanDate).toLocaleDateString("de-DE")}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
+                              seit {new Date(l.loanDate).toLocaleDateString("de-DE")}
+                            </span>
+                            <Btn sm variant="secondary" onClick={async () => {
+                              try {
+                                await api.post(`/loans/hardware/${l.hardwareId}/return`);
+                                setEmpLoans((prev) => prev.filter((x) => x.id !== l.id));
+                                toast("Hardware zurückgegeben");
+                              } catch (err) { toast(err?.message || "Rückgabe fehlgeschlagen"); }
+                            }}>Zurückgeben</Btn>
                           </div>
                         </div>
                       ))}
@@ -457,8 +466,17 @@ function EmployeesPage({ toast }) {
                             <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{a.softwareName}</div>
                             <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{a.vendor}</div>
                           </div>
-                          <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
-                            seit {new Date(a.assignedDate).toLocaleDateString("de-DE")}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
+                              seit {new Date(a.assignedDate).toLocaleDateString("de-DE")}
+                            </span>
+                            <Btn sm variant="secondary" onClick={async () => {
+                              try {
+                                await api.post(`/software/${a.softwareId}/revoke/${selected}`);
+                                setEmpSoftware((prev) => prev.filter((x) => x.id !== a.id));
+                                toast("Lizenz entzogen");
+                              } catch (err) { toast(err?.message || "Entzug fehlgeschlagen"); }
+                            }}>Entziehen</Btn>
                           </div>
                         </div>
                       ))}
