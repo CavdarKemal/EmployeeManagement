@@ -141,11 +141,14 @@ function EmployeesPage({ toast }) {
   const [editEmp, setEditEmp]     = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [empLoans, setEmpLoans]   = useState([]);
+  const [empLoanHistory, setEmpLoanHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [empSoftware, setEmpSoftware] = useState([]);
 
   useEffect(() => {
-    if (!selected) { setEmpLoans([]); setEmpSoftware([]); return; }
+    if (!selected) { setEmpLoans([]); setEmpLoanHistory([]); setEmpSoftware([]); setShowHistory(false); return; }
     api.get(`/loans/employees/${selected}/active`).then(setEmpLoans).catch(() => setEmpLoans([]));
+    api.get(`/loans/employees/${selected}/history`).then(setEmpLoanHistory).catch(() => setEmpLoanHistory([]));
     api.get(`/software/employees/${selected}/active`).then(setEmpSoftware).catch(() => setEmpSoftware([]));
   }, [selected]);
 
@@ -431,34 +434,66 @@ function EmployeesPage({ toast }) {
 
                 {/* Hardware section */}
                 <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #1e293b", paddingTop: 16, marginTop: 4 }}>
-                  <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>
-                    ZUGEWIESENE HARDWARE
-                  </div>
-                  {empLoans.length === 0 ? (
-                    <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine Hardware zugewiesen</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {empLoans.map((l) => (
-                        <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#1e293b", borderRadius: "8px", border: "1px solid #334155" }}>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{l.hardwareName}</div>
-                            <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{l.assetTag}</div>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
-                              seit {new Date(l.loanDate).toLocaleDateString("de-DE")}
-                            </span>
-                            <Btn sm variant="secondary" onClick={async () => {
-                              try {
-                                await api.post(`/loans/hardware/${l.hardwareId}/return`);
-                                setEmpLoans((prev) => prev.filter((x) => x.id !== l.id));
-                                toast("Hardware zurückgegeben");
-                              } catch (err) { toast(err?.message || "Rückgabe fehlgeschlagen"); }
-                            }}>Zurückgeben</Btn>
-                          </div>
-                        </div>
-                      ))}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
+                      ZUGEWIESENE HARDWARE
                     </div>
+                    {empLoanHistory.length > 0 && (
+                      <button onClick={() => setShowHistory((h) => !h)} style={{
+                        background: "none", border: "1px solid #334155", borderRadius: "6px", padding: "3px 10px",
+                        fontSize: 11, color: showHistory ? "#a5b4fc" : "#64748b", cursor: "pointer",
+                        fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                      }}>
+                        {showHistory ? "Aktive anzeigen" : `Historie (${empLoanHistory.filter((l) => l.returnedAt).length})`}
+                      </button>
+                    )}
+                  </div>
+
+                  {!showHistory ? (
+                    empLoans.length === 0 ? (
+                      <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine Hardware zugewiesen</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {empLoans.map((l) => (
+                          <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#1e293b", borderRadius: "8px", border: "1px solid #334155" }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{l.hardwareName}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{l.assetTag}</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
+                                seit {new Date(l.loanDate).toLocaleDateString("de-DE")}
+                              </span>
+                              <Btn sm variant="secondary" onClick={async () => {
+                                try {
+                                  await api.post(`/loans/hardware/${l.hardwareId}/return`);
+                                  setEmpLoans((prev) => prev.filter((x) => x.id !== l.id));
+                                  toast("Hardware zurückgegeben");
+                                } catch (err) { toast(err?.message || "Rückgabe fehlgeschlagen"); }
+                              }}>Zurückgeben</Btn>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  ) : (
+                    empLoanHistory.filter((l) => l.returnedAt).length === 0 ? (
+                      <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine abgeschlossenen Ausleihen</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {empLoanHistory.filter((l) => l.returnedAt).map((l) => (
+                          <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#0f172a", borderRadius: "8px", border: "1px solid #1e293b", opacity: 0.7 }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}>{l.hardwareName}</div>
+                              <div style={{ fontSize: 11, color: "#475569", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{l.assetTag}</div>
+                            </div>
+                            <div style={{ fontSize: 11, color: "#475569", fontFamily: "'DM Sans', sans-serif", textAlign: "right" }}>
+                              <div>{new Date(l.loanDate).toLocaleDateString("de-DE")} — {new Date(l.returnedAt).toLocaleDateString("de-DE")}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
                   )}
                 </div>
 
