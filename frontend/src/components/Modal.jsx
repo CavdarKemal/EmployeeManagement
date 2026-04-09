@@ -15,7 +15,7 @@ const Modal = ({ title, children, onClose, width = 500 }) => {
         justifyContent: "center",
         padding: isMobile ? 0 : 20,
       }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      /* Kein Schließen bei Klick auf Backdrop — nur über X oder Abbrechen */
     >
       <style>{`
         @keyframes modalIn {
