@@ -85,6 +85,20 @@ public class SoftwareService {
         log.info("Software gelöscht: {}", id);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<java.util.Map<String, Object>> getActiveAssignmentsForEmployee(Long employeeId) {
+        return assignmentRepo.findActiveByEmployee(employeeId).stream().map(a -> {
+            var sw = a.getSoftware();
+            return java.util.Map.<String, Object>of(
+                "id", a.getId(),
+                "softwareName", sw.getName(),
+                "vendor", sw.getVendor() != null ? sw.getVendor() : "",
+                "assignedDate", a.getAssignedDate().toString(),
+                "licenseKey", a.getLicenseKey() != null ? a.getLicenseKey() : ""
+            );
+        }).toList();
+    }
+
     public void assignLicense(Long softwareId, Long employeeId, String licenseKey) {
         Software sw = softwareRepo.findById(softwareId)
                 .orElseThrow(() -> new ResourceNotFoundException("Software", softwareId));

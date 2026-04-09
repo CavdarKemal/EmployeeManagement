@@ -49,6 +49,12 @@ public class SoftwareController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/employees/{employeeId}/active")
+    @Operation(summary = "Aktive Software-Zuweisungen eines Mitarbeiters")
+    public ResponseEntity<?> getActiveAssignments(@PathVariable Long employeeId) {
+        return ResponseEntity.ok(service.getActiveAssignmentsForEmployee(employeeId));
+    }
+
     @PostMapping("/{softwareId}/assign/{employeeId}")
     @Operation(summary = "Softwarelizenz einem Mitarbeiter zuweisen")
     public ResponseEntity<Void> assignLicense(

@@ -130,6 +130,14 @@ function EmployeesPage({ toast }) {
   const [showForm, setShowForm]   = useState(false);
   const [editEmp, setEditEmp]     = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [empLoans, setEmpLoans]   = useState([]);
+  const [empSoftware, setEmpSoftware] = useState([]);
+
+  useEffect(() => {
+    if (!selected) { setEmpLoans([]); setEmpSoftware([]); return; }
+    api.get(`/loans/employees/${selected}/active`).then(setEmpLoans).catch(() => setEmpLoans([]));
+    api.get(`/software/employees/${selected}/active`).then(setEmpSoftware).catch(() => setEmpSoftware([]));
+  }, [selected]);
 
   const filtered = employees.filter((e) =>
     `${e.firstName} ${e.lastName} ${e.employeeNumber} ${e.department} ${e.position}`
@@ -411,53 +419,51 @@ function EmployeesPage({ toast }) {
                 ))}
 
                 {/* Hardware section */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <div
-                    style={{
-                      borderTop: "1px solid #1e293b",
-                      paddingTop: 16,
-                      marginTop: 4,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        fontWeight: 500,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        fontFamily: "'DM Sans', sans-serif",
-                        marginBottom: 8,
-                      }}
-                    >
-                      ZUGEWIESENE HARDWARE
-                    </div>
-                    <div style={{ fontSize: 13, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
-                      Hardware-Tab für Details öffnen.
-                    </div>
+                <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #1e293b", paddingTop: 16, marginTop: 4 }}>
+                  <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>
+                    ZUGEWIESENE HARDWARE
                   </div>
+                  {empLoans.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine Hardware zugewiesen</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {empLoans.map((l) => (
+                        <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#1e293b", borderRadius: "8px", border: "1px solid #334155" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{l.hardwareName}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{l.assetTag}</div>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
+                            seit {new Date(l.loanDate).toLocaleDateString("de-DE")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Software section */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        fontWeight: 500,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        fontFamily: "'DM Sans', sans-serif",
-                        marginBottom: 8,
-                      }}
-                    >
-                      SOFTWARE & LIZENZEN
-                    </div>
-                    <div style={{ fontSize: 13, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
-                      Software-Tab für Details öffnen.
-                    </div>
+                <div style={{ gridColumn: "1 / -1", marginTop: 8 }}>
+                  <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>
+                    SOFTWARE & LIZENZEN
                   </div>
+                  {empSoftware.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine Software zugewiesen</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {empSoftware.map((a) => (
+                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#1e293b", borderRadius: "8px", border: "1px solid #334155" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{a.softwareName}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{a.vendor}</div>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
+                            seit {new Date(a.assignedDate).toLocaleDateString("de-DE")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
