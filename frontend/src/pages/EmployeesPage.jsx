@@ -139,6 +139,7 @@ function EmployeesPage({ toast }) {
     }).finally(() => setLoading(false));
   }, []);
   const [selected, setSelected]   = useState(null);
+  const [checked, setChecked]     = useState(new Set());
   const [search, setSearch]       = useState("");
   const [showForm, setShowForm]   = useState(false);
   const [editEmp, setEditEmp]     = useState(null);
@@ -189,6 +190,21 @@ function EmployeesPage({ toast }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
+      {/* Batch actions */}
+      {checked.size > 0 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 14px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: "8px" }}>
+          <span style={{ fontSize: 13, color: "#a5b4fc", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>{checked.size} ausgewählt</span>
+          <Btn sm variant="danger" onClick={async () => {
+            try {
+              await api.post("/batch/employees/deactivate", [...checked]);
+              setEmployees((prev) => prev.filter((e) => !checked.has(e.id)));
+              toast(`${checked.size} Mitarbeiter deaktiviert`);
+              setChecked(new Set());
+            } catch { toast("Batch-Aktion fehlgeschlagen"); }
+          }}>Deaktivieren</Btn>
+          <Btn sm variant="ghost" onClick={() => setChecked(new Set())}>Auswahl aufheben</Btn>
+        </div>
+      )}
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
@@ -266,6 +282,11 @@ function EmployeesPage({ toast }) {
                 onMouseEnter={(el) => { if (!isActive) el.currentTarget.style.background = "rgba(51,65,85,0.5)"; }}
                 onMouseLeave={(el) => { if (!isActive) el.currentTarget.style.background = "transparent"; }}
               >
+                <input type="checkbox" checked={checked.has(e.id)}
+                  onChange={(ev) => { ev.stopPropagation(); setChecked((prev) => { const n = new Set(prev); n.has(e.id) ? n.delete(e.id) : n.add(e.id); return n; }); }}
+                  onClick={(ev) => ev.stopPropagation()}
+                  style={{ accentColor: "#6366f1", flexShrink: 0 }}
+                />
                 {e.photoUrl ? (
                   <img src={e.photoUrl} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                 ) : (
