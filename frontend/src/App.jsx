@@ -9,6 +9,7 @@ import HardwarePage from "./pages/HardwarePage.jsx";
 import SoftwarePage from "./pages/SoftwarePage.jsx";
 import { AdminPage } from "./pages/AdminPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
+import NotificationConfigPage from "./pages/NotificationConfigPage.jsx";
 
 // ── SVG Icons ────────────────────────────────────────────────
 const IconDashboard = () => (
@@ -62,6 +63,7 @@ const NAV = [
   { id: "software",  label: "Software & Lizenzen", Icon: IconSoftware  },
   { id: "admin",     label: "Administration",      Icon: IconAdmin     },
   { id: "audit",     label: "Audit-Log",           Icon: IconAdmin     },
+  { id: "notify",    label: "Benachrichtigungen", Icon: IconAdmin     },
 ];
 
 const PAGE_SUBTITLES = {
@@ -71,6 +73,7 @@ const PAGE_SUBTITLES = {
   software:  "Software & Lizenzen",
   admin:     "Benutzerverwaltung",
   audit:     "Wer hat was wann geändert",
+  notify:    "E-Mail-Einstellungen",
 };
 
 const MOBILE_BREAKPOINT = 768;
@@ -155,6 +158,7 @@ function Shell() {
     software:  <SoftwarePage toast={showToast} />,
     admin:     <AdminPage    toast={showToast} />,
     audit:     <AuditLogPage />,
+    notify:    <NotificationConfigPage toast={showToast} />,
   };
 
   const currentNav = NAV.find((n) => n.id === page);
