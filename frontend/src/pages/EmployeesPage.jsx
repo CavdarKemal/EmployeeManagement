@@ -11,6 +11,7 @@ import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
 import Pagination from "../components/Pagination.jsx";
+import ImportDialog from "../components/ImportDialog.jsx";
 
 
 // ── Employee Form Modal ──────────────────────────────────────
@@ -142,6 +143,7 @@ function EmployeesPage({ toast }) {
   const [showForm, setShowForm]   = useState(false);
   const [editEmp, setEditEmp]     = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [empLoans, setEmpLoans]   = useState([]);
   const [empLoanHistory, setEmpLoanHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -219,6 +221,7 @@ function EmployeesPage({ toast }) {
             }}
           />
         </div>
+        <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
         <Btn variant="secondary" onClick={() => exportCSV(employees, [
           { key: "employeeNumber", label: "Nr." }, { key: "firstName", label: "Vorname" },
           { key: "lastName", label: "Nachname" }, { key: "email", label: "E-Mail" },
@@ -565,6 +568,16 @@ function EmployeesPage({ toast }) {
             <Btn variant="danger" onClick={() => handleDelete(confirmDelete.id)}>Löschen</Btn>
           </div>
         </Modal>
+      )}
+
+      {showImport && (
+        <ImportDialog
+          title="Mitarbeiter importieren"
+          endpoint="employees"
+          onDone={() => { api.get("/employees?size=200").then((d) => { if (d?.content) setEmployees(d.content); }); }}
+          onClose={() => setShowImport(false)}
+          toast={toast}
+        />
       )}
     </div>
   );

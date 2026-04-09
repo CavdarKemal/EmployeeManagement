@@ -10,6 +10,7 @@ import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
 import Pagination from "../components/Pagination.jsx";
+import ImportDialog from "../components/ImportDialog.jsx";
 
 const CAT_EMOJI = { PRODUCTIVITY: "📊", DEV_TOOLS: "🛠️", DESIGN: "🎨", OS: "💾" };
 
@@ -91,6 +92,7 @@ function SoftwarePage({ toast }) {
   const [editSw, setEditSw]       = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -184,6 +186,7 @@ function SoftwarePage({ toast }) {
             );
           })}
         </div>
+        <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
         <Btn variant="secondary" onClick={() => exportCSV(software, [
           { key: "name", label: "Name" }, { key: "vendor", label: "Hersteller" },
           { key: "version", label: "Version" }, { key: "category", label: "Kategorie" },
@@ -413,6 +416,16 @@ function SoftwarePage({ toast }) {
             <Btn onClick={() => handleAssign(assignDialog.id)} disabled={!empId}>Zuweisen</Btn>
           </div>
         </Modal>
+      )}
+
+      {showImport && (
+        <ImportDialog
+          title="Software importieren"
+          endpoint="software"
+          onDone={() => { api.get("/software?size=200").then((d) => { if (d?.content) setSoftware(d.content); }); }}
+          onClose={() => setShowImport(false)}
+          toast={toast}
+        />
       )}
     </div>
   );

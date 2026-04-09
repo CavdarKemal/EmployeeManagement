@@ -10,6 +10,7 @@ import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
 import Pagination from "../components/Pagination.jsx";
+import ImportDialog from "../components/ImportDialog.jsx";
 
 const FILTER_LABELS = {
   ALL:         "Alle",
@@ -230,6 +231,7 @@ function HardwarePage({ toast }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showImport, setShowImport] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
@@ -353,6 +355,7 @@ function HardwarePage({ toast }) {
           })}
         </div>
 
+        <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
         <Btn variant="secondary" onClick={() => exportCSV(hardware, [
           { key: "assetTag", label: "Asset-Tag" }, { key: "name", label: "Name" },
           { key: "category", label: "Kategorie" }, { key: "manufacturer", label: "Hersteller" },
@@ -534,6 +537,16 @@ function HardwarePage({ toast }) {
             <Btn variant="danger" onClick={() => handleDelete(confirmDelete.id)}>Löschen</Btn>
           </div>
         </Modal>
+      )}
+
+      {showImport && (
+        <ImportDialog
+          title="Hardware importieren"
+          endpoint="hardware"
+          onDone={() => { api.get("/hardware?size=200").then((d) => { if (d?.content) setHardware(d.content); }); }}
+          onClose={() => setShowImport(false)}
+          toast={toast}
+        />
       )}
     </div>
   );
