@@ -1,6 +1,9 @@
 package com.employeemanagement.service;
 
 import com.employeemanagement.dto.ImportResultDTO;
+import com.employeemanagement.model.Employee;
+import com.employeemanagement.model.Hardware;
+import com.employeemanagement.model.Software;
 import com.employeemanagement.repository.EmployeeRepository;
 import com.employeemanagement.repository.HardwareRepository;
 import com.employeemanagement.repository.SoftwareRepository;
