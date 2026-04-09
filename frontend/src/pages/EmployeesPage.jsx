@@ -9,6 +9,7 @@ import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
+import { exportCSV } from "../utils/csvExport.js";
 
 
 // ── Employee Form Modal ──────────────────────────────────────
@@ -217,6 +218,15 @@ function EmployeesPage({ toast }) {
             }}
           />
         </div>
+        <Btn variant="secondary" onClick={() => exportCSV(employees, [
+          { key: "employeeNumber", label: "Nr." }, { key: "firstName", label: "Vorname" },
+          { key: "lastName", label: "Nachname" }, { key: "email", label: "E-Mail" },
+          { key: "phone", label: "Telefon" }, { key: "position", label: "Position" },
+          { key: "department", label: "Abteilung" }, { key: "hireDate", label: "Eingestellt" },
+          { key: "salary", label: "Gehalt" }, { key: "street", label: "Straße" },
+          { key: "zipCode", label: "PLZ" }, { key: "city", label: "Stadt" },
+          { key: "country", label: "Land" },
+        ], "Mitarbeiter")}>CSV Export</Btn>
         <Btn onClick={() => { setEditEmp(null); setShowForm(true); }}>＋ Mitarbeiter</Btn>
       </div>
 

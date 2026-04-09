@@ -8,6 +8,7 @@ import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
+import { exportCSV } from "../utils/csvExport.js";
 
 const FILTER_LABELS = {
   ALL:         "Alle",
@@ -343,6 +344,13 @@ function HardwarePage({ toast }) {
           })}
         </div>
 
+        <Btn variant="secondary" onClick={() => exportCSV(hardware, [
+          { key: "assetTag", label: "Asset-Tag" }, { key: "name", label: "Name" },
+          { key: "category", label: "Kategorie" }, { key: "manufacturer", label: "Hersteller" },
+          { key: "model", label: "Modell" }, { key: "serialNumber", label: "Seriennummer" },
+          { key: "status", label: "Status" }, { key: "purchasePrice", label: "Kaufpreis" },
+          { key: "warrantyUntil", label: "Garantie bis" }, { key: "notes", label: "Notizen" },
+        ], "Hardware")}>CSV Export</Btn>
         <Btn onClick={() => setShowForm(true)}>＋ Hardware</Btn>
       </div>
 

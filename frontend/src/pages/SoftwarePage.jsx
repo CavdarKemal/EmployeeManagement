@@ -8,6 +8,7 @@ import Modal from "../components/Modal.jsx";
 import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
+import { exportCSV } from "../utils/csvExport.js";
 
 const CAT_EMOJI = { PRODUCTIVITY: "📊", DEV_TOOLS: "🛠️", DESIGN: "🎨", OS: "💾" };
 
@@ -175,6 +176,13 @@ function SoftwarePage({ toast }) {
             );
           })}
         </div>
+        <Btn variant="secondary" onClick={() => exportCSV(software, [
+          { key: "name", label: "Name" }, { key: "vendor", label: "Hersteller" },
+          { key: "version", label: "Version" }, { key: "category", label: "Kategorie" },
+          { key: "licenseType", label: "Lizenztyp" }, { key: "totalLicenses", label: "Lizenzen gesamt" },
+          { key: "usedLicenses", label: "Lizenzen genutzt" }, { key: "costPerLicense", label: "Kosten/Lizenz" },
+          { key: "renewalDate", label: "Erneuerung" }, { key: "notes", label: "Notizen" },
+        ], "Software")}>CSV Export</Btn>
         <Btn onClick={() => setShowForm(true)}>＋ Software</Btn>
       </div>
 
