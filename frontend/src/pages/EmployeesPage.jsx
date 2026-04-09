@@ -16,6 +16,7 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
   const initial = employee ?? {
     employeeNumber: "", firstName: "", lastName: "", email: "",
     phone: "", position: "", department: "", hireDate: "", salary: "", active: true,
+    street: "", city: "", zipCode: "", country: "Deutschland",
   };
   const [form, setForm]     = useState(initial);
   const [errors, setErrors] = useState({});
@@ -75,7 +76,16 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
           options={["Engineering", "Product", "Design", "Human Resources", "Marketing", "Finance", "IT"]}
         />
         <Input label="Gehalt (€/Jahr)" type="number" value={form.salary} onChange={(e) => set("salary", e.target.value)} placeholder="75000" />
-        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
+        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #334155", marginTop: 4, paddingTop: 10 }}>
+          <div style={{ fontSize: 11, color: "#64748b", fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", marginBottom: 10 }}>Adresse</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Input label="Straße" value={form.street} onChange={(e) => set("street", e.target.value)} placeholder="Musterstraße 1" />
+            <Input label="PLZ" value={form.zipCode} onChange={(e) => set("zipCode", e.target.value)} placeholder="10115" />
+            <Input label="Stadt" value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Berlin" />
+            <Input label="Land" value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="Deutschland" />
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10 }}>
           <input
             type="checkbox"
             id="active"
@@ -391,6 +401,7 @@ function EmployeesPage({ toast }) {
                   { label: "TELEFON",     value: emp.phone || "—" },
                   { label: "EINGESTELLT", value: new Date(emp.hireDate).toLocaleDateString("de-DE") },
                   { label: "GEHALT",      value: `${emp.salary?.toLocaleString("de-DE")} €/Jahr` },
+                  { label: "ADRESSE",     value: [emp.street, `${emp.zipCode || ""} ${emp.city || ""}`.trim(), emp.country].filter(Boolean).join(", ") || "—" },
                 ].map((item) => (
                   <div key={item.label}>
                     <div

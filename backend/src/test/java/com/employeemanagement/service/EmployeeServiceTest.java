@@ -56,4 +56,36 @@ class EmployeeServiceTest {
         when(repo.existsByEmail("exists@firma.de")).thenReturn(true);
         assertThrows(BusinessException.class, () -> service.create(dto, null));
     }
+
+    @Test
+    @DisplayName("create – Adressfelder werden korrekt übergeben")
+    void create_withAddress() {
+        EmployeeDTO dto = new EmployeeDTO();
+        dto.setEmployeeNumber("EMP-ADDR");
+        dto.setEmail("addr@firma.de");
+        dto.setFirstName("Test");
+        dto.setLastName("Adresse");
+        dto.setStreet("Musterstr. 1");
+        dto.setCity("Berlin");
+        dto.setZipCode("10115");
+        dto.setCountry("Deutschland");
+
+        Employee entity = Employee.builder().id(1L).email("addr@firma.de")
+                .street("Musterstr. 1").city("Berlin").zipCode("10115").country("Deutschland").build();
+        EmployeeDTO saved = new EmployeeDTO();
+        saved.setId(1L);
+        saved.setStreet("Musterstr. 1");
+        saved.setCity("Berlin");
+
+        when(repo.existsByEmail("addr@firma.de")).thenReturn(false);
+        when(repo.existsByEmployeeNumber("EMP-ADDR")).thenReturn(false);
+        when(mapper.toEntity(dto)).thenReturn(entity);
+        when(repo.save(entity)).thenReturn(entity);
+        when(mapper.toDTO(entity)).thenReturn(saved);
+
+        EmployeeDTO result = service.create(dto, null);
+
+        assertThat(result.getStreet()).isEqualTo("Musterstr. 1");
+        assertThat(result.getCity()).isEqualTo("Berlin");
+    }
 }

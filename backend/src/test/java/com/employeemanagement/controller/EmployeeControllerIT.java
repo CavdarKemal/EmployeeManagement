@@ -87,6 +87,32 @@ class EmployeeControllerIT {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void createEmployee_withAddress_201() throws Exception {
+        String body = """
+            {
+              "employeeNumber": "EMP-ADDR-001",
+              "firstName": "Anna",
+              "lastName": "Adresse",
+              "email": "anna@test.de",
+              "hireDate": "2024-06-01",
+              "street": "Berliner Str. 42",
+              "zipCode": "10115",
+              "city": "Berlin",
+              "country": "Deutschland"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/employees")
+                .contentType(APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.street").value("Berliner Str. 42"))
+            .andExpect(jsonPath("$.city").value("Berlin"))
+            .andExpect(jsonPath("$.zipCode").value("10115"))
+            .andExpect(jsonPath("$.country").value("Deutschland"));
+    }
+
+    @Test
     @WithMockUser(roles = "HR")
     void createEmployee_duplicateEmail_409() throws Exception {
         Employee emp = Employee.builder()
