@@ -97,24 +97,48 @@ class ImportControllerIT {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void importEmployees_duplicatesSkipped_existingUntouched() throws Exception {
+    void importEmployees_existingUpdated() throws Exception {
         empRepo.save(Employee.builder()
-            .employeeNumber("EMP-EXIST").firstName("Existing").lastName("User")
+            .employeeNumber("EMP-EXIST").firstName("Alt").lastName("Name")
             .email("exists@import.de").hireDate(LocalDate.now()).department("IT").build());
 
-        String csv = "\"Nr.\";\"Vorname\";\"Nachname\";\"E-Mail\";\"Eingestellt\"\r\n" +
-                     "\"EMP-NEW\";\"New\";\"User\";\"new@import.de\";\"2024-01-01\"\r\n" +
-                     "\"EMP-X\";\"Dup\";\"User\";\"exists@import.de\";\"2024-01-01\"\r\n";
+        String csv = "\"Nr.\";\"Vorname\";\"Nachname\";\"E-Mail\";\"Eingestellt\";\"Abteilung\"\r\n" +
+                     "\"EMP-NEW\";\"New\";\"User\";\"new@import.de\";\"2024-01-01\";\"Design\"\r\n" +
+                     "\"EMP-EXIST\";\"Neu\";\"Name\";\"exists@import.de\";\"2024-01-01\";\"Engineering\"\r\n";
 
         mockMvc.perform(multipart("/api/v1/import/employees")
                 .file(new MockMultipartFile("file", "emp.csv", "text/csv", csv.getBytes())))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.imported").value(1))
-            .andExpect(jsonPath("$.skipped").value(1));
+            .andExpect(jsonPath("$.imported").value(2));
 
         assertThat(empRepo.count()).isEqualTo(2);
-        // Existing employee unchanged
-        assertThat(empRepo.findByEmail("exists@import.de").get().getFirstName()).isEqualTo("Existing");
+        // Existing employee was UPDATED
+        Employee updated = empRepo.findByEmail("exists@import.de").orElseThrow();
+        assertThat(updated.getFirstName()).isEqualTo("Neu");
+        assertThat(updated.getDepartment()).isEqualTo("Engineering");
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void importEmployees_reactivatesDeactivated() throws Exception {
+        // Deaktivierten Mitarbeiter anlegen
+        Employee deactivated = empRepo.save(Employee.builder()
+            .employeeNumber("EMP-DEA").firstName("Deaktiviert").lastName("User")
+            .email("deactivated@import.de").hireDate(LocalDate.now()).active(false).build());
+        assertThat(deactivated.isActive()).isFalse();
+
+        String csv = "\"Nr.\";\"Vorname\";\"Nachname\";\"E-Mail\";\"Eingestellt\"\r\n" +
+                     "\"EMP-DEA\";\"Reaktiviert\";\"User\";\"deactivated@import.de\";\"2024-06-01\"\r\n";
+
+        mockMvc.perform(multipart("/api/v1/import/employees")
+                .file(new MockMultipartFile("file", "emp.csv", "text/csv", csv.getBytes())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.imported").value(1));
+
+        // DB: Mitarbeiter ist jetzt aktiv und aktualisiert
+        Employee reactivated = empRepo.findByEmail("deactivated@import.de").orElseThrow();
+        assertThat(reactivated.isActive()).isTrue();
+        assertThat(reactivated.getFirstName()).isEqualTo("Reaktiviert");
     }
 
     @Test

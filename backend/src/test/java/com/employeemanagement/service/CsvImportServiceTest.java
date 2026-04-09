@@ -30,7 +30,7 @@ class CsvImportServiceTest {
                      "\"EMP-IMP-1\";\"Anna\";\"Test\";\"anna@import.de\";\"2024-01-01\"\r\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csv.getBytes());
 
-        when(employeeRepo.existsByEmail("anna@import.de")).thenReturn(false);
+        when(employeeRepo.findByEmail("anna@import.de")).thenReturn(java.util.Optional.empty());
         when(employeeRepo.existsByEmployeeNumber("EMP-IMP-1")).thenReturn(false);
         when(employeeRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
@@ -42,19 +42,22 @@ class CsvImportServiceTest {
     }
 
     @Test
-    @DisplayName("importEmployees – Duplikat-E-Mail wird übersprungen")
-    void importEmployees_duplicateEmail() {
+    @DisplayName("importEmployees – bestehender Mitarbeiter wird aktualisiert")
+    void importEmployees_existingUpdated() {
         String csv = "\"Nr.\";\"Vorname\";\"Nachname\";\"E-Mail\"\r\n" +
-                     "\"EMP-1\";\"A\";\"B\";\"exists@firma.de\"\r\n";
+                     "\"EMP-1\";\"Neu\";\"Name\";\"exists@firma.de\"\r\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csv.getBytes());
 
-        when(employeeRepo.existsByEmail("exists@firma.de")).thenReturn(true);
+        Employee existing = Employee.builder().id(1L).employeeNumber("EMP-1")
+                .firstName("Alt").lastName("Name").email("exists@firma.de")
+                .hireDate(java.time.LocalDate.now()).build();
+        when(employeeRepo.findByEmail("exists@firma.de")).thenReturn(java.util.Optional.of(existing));
+        when(employeeRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
         ImportResultDTO result = service.importEmployees(file);
 
-        assertThat(result.getImported()).isZero();
-        assertThat(result.getSkipped()).isEqualTo(1);
-        assertThat(result.getErrors()).anyMatch(e -> e.contains("bereits vorhanden"));
+        assertThat(result.getImported()).isEqualTo(1);
+        assertThat(existing.getFirstName()).isEqualTo("Neu");
     }
 
     @Test

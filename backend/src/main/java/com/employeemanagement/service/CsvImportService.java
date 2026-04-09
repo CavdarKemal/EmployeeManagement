@@ -37,7 +37,32 @@ public class CsvImportService {
             String email = row.get("E-Mail");
             String empNr = row.get("Nr.");
             if (email == null || email.isBlank()) { result.getErrors().add("Zeile ohne E-Mail übersprungen"); result.setSkipped(result.getSkipped() + 1); return; }
-            if (employeeRepo.existsByEmail(email)) { result.getErrors().add("E-Mail bereits vorhanden: " + email); result.setSkipped(result.getSkipped() + 1); return; }
+
+            // Existierender Mitarbeiter? → Aktualisieren (reaktivieren falls inaktiv)
+            var existing = employeeRepo.findByEmail(email);
+            if (existing.isPresent()) {
+                Employee emp = existing.get();
+                emp.setFirstName(row.getOrDefault("Vorname", emp.getFirstName()));
+                emp.setLastName(row.getOrDefault("Nachname", emp.getLastName()));
+                if (empNr != null) emp.setEmployeeNumber(empNr);
+                emp.setPhone(row.get("Telefon"));
+                emp.setPosition(row.get("Position"));
+                emp.setDepartment(row.get("Abteilung"));
+                if (row.containsKey("Eingestellt")) emp.setHireDate(parseDate(row.get("Eingestellt")));
+                if (row.containsKey("Gehalt")) emp.setSalary(parseBigDecimal(row.get("Gehalt")));
+                emp.setStreet(row.get("Straße"));
+                emp.setZipCode(row.get("PLZ"));
+                emp.setCity(row.get("Stadt"));
+                if (row.containsKey("Land")) emp.setCountry(row.get("Land"));
+                if (!emp.isActive()) {
+                    emp.setActive(true);
+                    result.getErrors().add("Reaktiviert: " + email);
+                }
+                employeeRepo.save(emp);
+                result.setImported(result.getImported() + 1);
+                return;
+            }
+
             if (empNr != null && employeeRepo.existsByEmployeeNumber(empNr)) { result.getErrors().add("Mitarbeiternummer bereits vorhanden: " + empNr); result.setSkipped(result.getSkipped() + 1); return; }
 
             Employee emp = Employee.builder()
