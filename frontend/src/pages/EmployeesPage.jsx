@@ -88,16 +88,21 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
           </label>
         </div>
       </div>
-      <div style={{ marginTop: 14 }}>
-        <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
-          Foto (optional, max. 5 MB, jpg/png/gif/webp)
-        </label>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          onChange={(e) => setPhoto(e.target.files[0] || null)}
-          style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}
-        />
+      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
+        {form.photoUrl && !photo && (
+          <img src={form.photoUrl} alt="Aktuelles Foto" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
+        )}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
+            {form.photoUrl ? "Foto ändern (optional)" : "Foto (optional, max. 5 MB)"}
+          </label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={(e) => setPhoto(e.target.files[0] || null)}
+            style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}
+          />
+        </div>
       </div>
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
@@ -226,7 +231,11 @@ function EmployeesPage({ toast }) {
                 onMouseEnter={(el) => { if (!isActive) el.currentTarget.style.background = "rgba(51,65,85,0.5)"; }}
                 onMouseLeave={(el) => { if (!isActive) el.currentTarget.style.background = "transparent"; }}
               >
-                <Avatar name={`${e.firstName} ${e.lastName}`} size={38} />
+                {e.photoUrl ? (
+                  <img src={e.photoUrl} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                ) : (
+                  <Avatar name={`${e.firstName} ${e.lastName}`} size={38} />
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 14, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
@@ -293,7 +302,15 @@ function EmployeesPage({ toast }) {
                 }}
               >
                 <div style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
-                  <Avatar name={`${emp.firstName} ${emp.lastName}`} size={60} />
+                  {emp.photoUrl ? (
+                    <img
+                      src={emp.photoUrl}
+                      alt={`${emp.firstName} ${emp.lastName}`}
+                      style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                    />
+                  ) : (
+                    <Avatar name={`${emp.firstName} ${emp.lastName}`} size={60} />
+                  )}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                       <h2
