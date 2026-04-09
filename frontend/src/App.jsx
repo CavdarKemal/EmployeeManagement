@@ -7,6 +7,7 @@ import EmployeesPage from "./pages/EmployeesPage.jsx";
 import HardwarePage from "./pages/HardwarePage.jsx";
 import SoftwarePage from "./pages/SoftwarePage.jsx";
 import { AdminPage } from "./pages/AdminPage.jsx";
+import AuditLogPage from "./pages/AuditLogPage.jsx";
 
 // ── SVG Icons ────────────────────────────────────────────────
 const IconDashboard = () => (
@@ -59,6 +60,7 @@ const NAV = [
   { id: "hardware",  label: "Hardware",            Icon: IconHardware  },
   { id: "software",  label: "Software & Lizenzen", Icon: IconSoftware  },
   { id: "admin",     label: "Administration",      Icon: IconAdmin     },
+  { id: "audit",     label: "Audit-Log",           Icon: IconAdmin     },
 ];
 
 const PAGE_SUBTITLES = {
@@ -67,6 +69,7 @@ const PAGE_SUBTITLES = {
   hardware:  "Hardware-Assets",
   software:  "Software & Lizenzen",
   admin:     "Benutzerverwaltung",
+  audit:     "Wer hat was wann geändert",
 };
 
 function NavItem({ item, active, onClick }) {
@@ -135,6 +138,7 @@ function Shell() {
     hardware:  <HardwarePage toast={showToast} />,
     software:  <SoftwarePage toast={showToast} />,
     admin:     <AdminPage    toast={showToast} />,
+    audit:     <AuditLogPage />,
   };
 
   const currentNav = NAV.find((n) => n.id === page);
