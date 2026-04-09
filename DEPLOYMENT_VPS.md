@@ -412,6 +412,74 @@ docker compose down -v
 
 ---
 
+## E-Mail-Benachrichtigungen einrichten (Google Workspace)
+
+### 1. Google App-Passwort erstellen
+
+Gmail/Google Workspace blockiert Logins von Apps. Stattdessen braucht man ein
+**App-Passwort** — ein spezielles 16-stelliges Passwort nur für diese App.
+
+1. Öffne https://myaccount.google.com/apppasswords
+2. Ggf. 2-Faktor-Authentifizierung aktivieren (Voraussetzung)
+3. App-Name eingeben: `EmployeeManagement`
+4. "Erstellen" klicken → Google zeigt ein 16-stelliges Passwort (z.B. `abcd efgh ijkl mnop`)
+5. **Passwort kopieren** (wird nur einmal angezeigt!)
+
+### 2. .env auf dem VPS ergänzen
+
+```bash
+ssh vps
+nano /opt/employeemanagement/.env
+```
+
+Folgende Zeilen am Ende hinzufügen:
+
+```env
+NOTIFICATION_ENABLED=true
+NOTIFICATION_EMAIL=kemal@cavdar.de
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=kemal@cavdar.de
+MAIL_PASSWORD=abcd efgh ijkl mnop    # ← App-Passwort von Schritt 1 (ohne Leerzeichen)
+```
+
+### 3. Backend neu starten
+
+```bash
+cd /opt/employeemanagement
+docker compose up -d backend
+```
+
+### 4. Test-Mail senden
+
+In der App: **Benachrichtigungen** → E-Mail-Adresse eingeben → "Test senden".
+Oder per curl:
+
+```bash
+TOKEN=$(curl -s https://em.cavdar.de/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@firma.de","password":"admin123"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+curl -s -X POST "https://em.cavdar.de/api/v1/admin/notifications/test?to=kemal@cavdar.de" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Was wird benachrichtigt?
+
+| Benachrichtigung | Zeitpunkt | Inhalt |
+|-----------------|-----------|--------|
+| Garantie-Ablauf | Täglich 08:00 | Hardware deren Garantie in ≤30 Tagen abläuft |
+| Lizenz-Erneuerung | Täglich 08:00 | Software deren Lizenz in ≤30 Tagen erneuert werden muss |
+
+Die Schwellwerte (30 Tage) können in der `.env` angepasst werden:
+```env
+# Optional — Defaults sind 30 Tage
+NOTIFICATION_WARRANTY_DAYS=30
+NOTIFICATION_RENEWAL_DAYS=30
+```
+
+---
+
 ## Wichtig: docker-compose.yml muss im Repo bleiben!
 
 Die `docker-compose.yml` (und die anderen compose-Dateien) **dürfen nicht aus dem
