@@ -72,7 +72,19 @@ const PAGE_SUBTITLES = {
   audit:     "Wer hat was wann geändert",
 };
 
-function NavItem({ item, active, onClick }) {
+const MOBILE_BREAKPOINT = 768;
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
+  useState(() => {
+    const handler = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  });
+  return isMobile;
+}
+
+function NavItem({ item, active, onClick, collapsed }) {
   const [hovered, setHovered] = useState(false);
   const { Icon } = item;
 
@@ -115,7 +127,7 @@ function NavItem({ item, active, onClick }) {
       }}
     >
       <Icon />
-      {item.label}
+      {!collapsed && item.label}
     </button>
   );
 }
@@ -124,6 +136,8 @@ function Shell() {
   const { user, logout } = useAuth();
   const [page, setPage]   = useState("dashboard");
   const [toast, setToast] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isMobile = useIsMobile();
 
   const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
@@ -146,16 +160,26 @@ function Shell() {
   return (
     <div style={{ display: "flex", height: "100vh", background: "#0f172a", overflow: "hidden" }}>
 
+      {/* Mobile overlay */}
+      {isMobile && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99 }} />
+      )}
+
       {/* ── Sidebar ── */}
       <div
         style={{
-          width: 260,
+          width: isMobile ? 260 : (sidebarOpen ? 260 : 64),
           background: "#1e293b",
           borderRight: "1px solid #334155",
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
           height: "100vh",
+          transition: "width 200ms ease, transform 200ms ease",
+          ...(isMobile ? {
+            position: "fixed", zIndex: 100, left: 0, top: 0,
+            transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+          } : {}),
         }}
       >
         {/* Logo area */}
@@ -178,17 +202,11 @@ function Shell() {
           >
             EM
           </div>
-          <span
-            style={{
-              color: "#f1f5f9",
-              fontWeight: 600,
-              fontSize: 14,
-              fontFamily: "'Sora', sans-serif",
-              letterSpacing: "0.1px",
-            }}
-          >
-            EmployeeManagement
-          </span>
+          {(sidebarOpen || isMobile) && (
+            <span style={{ color: "#f1f5f9", fontWeight: 600, fontSize: 14, fontFamily: "'Sora', sans-serif", letterSpacing: "0.1px" }}>
+              EmployeeManagement
+            </span>
+          )}
         </div>
 
         {/* Nav */}
@@ -198,7 +216,8 @@ function Shell() {
               key={item.id}
               item={item}
               active={page === item.id}
-              onClick={() => setPage(item.id)}
+              collapsed={!sidebarOpen && !isMobile}
+              onClick={() => { setPage(item.id); if (isMobile) setSidebarOpen(false); }}
             />
           ))}
         </nav>
@@ -210,6 +229,7 @@ function Shell() {
             padding: "12px",
             borderTop: "1px solid #334155",
             paddingTop: 16,
+            display: (!sidebarOpen && !isMobile) ? "none" : "block",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -282,16 +302,27 @@ function Shell() {
         {/* Header bar */}
         <div
           style={{
-            padding: "16px 32px",
+            padding: isMobile ? "12px 16px" : "16px 32px",
             background: "#0f172a",
             borderBottom: "1px solid #1e293b",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             flexShrink: 0,
+            gap: 12,
           }}
         >
-          <div>
+          <button
+            onClick={() => setSidebarOpen((o) => !o)}
+            style={{
+              background: "none", border: "none", cursor: "pointer", color: "#94a3b8",
+              padding: 4, fontSize: 20, lineHeight: 1, flexShrink: 0,
+            }}
+            title={sidebarOpen ? "Sidebar einklappen" : "Sidebar ausklappen"}
+          >
+            {sidebarOpen ? "\u2630" : "\u2630"}
+          </button>
+          <div style={{ flex: 1 }}>
             <h1
               style={{
                 margin: 0,
@@ -307,13 +338,15 @@ function Shell() {
               {PAGE_SUBTITLES[page]}
             </div>
           </div>
-          <span style={{ fontSize: 12, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
-            {new Date().toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-          </span>
+          {!isMobile && (
+            <span style={{ fontSize: 12, color: "#475569", fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
+              {new Date().toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            </span>
+          )}
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
+        <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "16px 12px" : "24px 32px" }}>
           {pages[page]}
         </div>
       </div>
