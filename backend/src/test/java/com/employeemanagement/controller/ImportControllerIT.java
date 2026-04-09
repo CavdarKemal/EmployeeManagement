@@ -1,5 +1,8 @@
 package com.employeemanagement.controller;
 
+import com.employeemanagement.model.Employee;
+import com.employeemanagement.model.Hardware;
+import com.employeemanagement.model.Software;
 import com.employeemanagement.repository.EmployeeRepository;
 import com.employeemanagement.repository.HardwareRepository;
 import com.employeemanagement.repository.SoftwareRepository;
@@ -18,6 +21,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.LocalDate;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -53,34 +59,132 @@ class ImportControllerIT {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(springSecurity())
                 .build();
+        hwRepo.deleteAll();
+        empRepo.deleteAll();
+        swRepo.deleteAll();
+    }
+
+    // ── EMPLOYEE IMPORT ──────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void importEmployees_verifyDbState() throws Exception {
+        String csv = "\uFEFF\"Nr.\";\"Vorname\";\"Nachname\";\"E-Mail\";\"Eingestellt\";\"Abteilung\";\"Gehalt\"\r\n" +
+                     "\"EMP-IMP-1\";\"Lisa\";\"Schmidt\";\"lisa@import.de\";\"2024-06-01\";\"Engineering\";\"80000\"\r\n" +
+                     "\"EMP-IMP-2\";\"Tom\";\"Fischer\";\"tom@import.de\";\"2024-07-15\";\"Design\";\"65000\"\r\n";
+
+        mockMvc.perform(multipart("/api/v1/import/employees")
+                .file(new MockMultipartFile("file", "emp.csv", "text/csv", csv.getBytes())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.imported").value(2))
+            .andExpect(jsonPath("$.skipped").value(0));
+
+        // DB-Verifikation: beide Mitarbeiter existieren mit korrekten Daten
+        assertThat(empRepo.count()).isEqualTo(2);
+
+        Employee lisa = empRepo.findByEmail("lisa@import.de").orElseThrow();
+        assertThat(lisa.getFirstName()).isEqualTo("Lisa");
+        assertThat(lisa.getLastName()).isEqualTo("Schmidt");
+        assertThat(lisa.getEmployeeNumber()).isEqualTo("EMP-IMP-1");
+        assertThat(lisa.getDepartment()).isEqualTo("Engineering");
+        assertThat(lisa.getSalary()).isEqualByComparingTo("80000");
+        assertThat(lisa.getHireDate()).isEqualTo(LocalDate.of(2024, 6, 1));
+        assertThat(lisa.isActive()).isTrue();
+
+        Employee tom = empRepo.findByEmail("tom@import.de").orElseThrow();
+        assertThat(tom.getDepartment()).isEqualTo("Design");
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void importEmployees_200() throws Exception {
-        empRepo.deleteAll();
+    void importEmployees_duplicatesSkipped_existingUntouched() throws Exception {
+        empRepo.save(Employee.builder()
+            .employeeNumber("EMP-EXIST").firstName("Existing").lastName("User")
+            .email("exists@import.de").hireDate(LocalDate.now()).department("IT").build());
+
         String csv = "\"Nr.\";\"Vorname\";\"Nachname\";\"E-Mail\";\"Eingestellt\"\r\n" +
-                     "\"EMP-IMP-IT\";\"Import\";\"Test\";\"import-it@test.de\";\"2024-06-01\"\r\n";
+                     "\"EMP-NEW\";\"New\";\"User\";\"new@import.de\";\"2024-01-01\"\r\n" +
+                     "\"EMP-X\";\"Dup\";\"User\";\"exists@import.de\";\"2024-01-01\"\r\n";
 
         mockMvc.perform(multipart("/api/v1/import/employees")
                 .file(new MockMultipartFile("file", "emp.csv", "text/csv", csv.getBytes())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.imported").value(1))
-            .andExpect(jsonPath("$.skipped").value(0));
+            .andExpect(jsonPath("$.skipped").value(1));
+
+        assertThat(empRepo.count()).isEqualTo(2);
+        // Existing employee unchanged
+        assertThat(empRepo.findByEmail("exists@import.de").get().getFirstName()).isEqualTo("Existing");
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void importHardware_200() throws Exception {
-        hwRepo.deleteAll();
-        String csv = "\"Asset-Tag\";\"Name\";\"Status\"\r\n" +
-                     "\"HW-IMP-IT\";\"Import Laptop\";\"AVAILABLE\"\r\n";
+    void importEmployees_emptyFile_returnsError() throws Exception {
+        mockMvc.perform(multipart("/api/v1/import/employees")
+                .file(new MockMultipartFile("file", "empty.csv", "text/csv", "".getBytes())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.imported").value(0))
+            .andExpect(jsonPath("$.errors[0]").value("Leere Datei"));
+
+        assertThat(empRepo.count()).isZero();
+    }
+
+    // ── HARDWARE IMPORT ──────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void importHardware_verifyDbState_defaultStatusAvailable() throws Exception {
+        String csv = "\"Asset-Tag\";\"Name\";\"Kategorie\";\"Hersteller\"\r\n" +
+                     "\"HW-IMP-1\";\"Import Laptop\";\"LAPTOP\";\"Lenovo\"\r\n";
 
         mockMvc.perform(multipart("/api/v1/import/hardware")
                 .file(new MockMultipartFile("file", "hw.csv", "text/csv", csv.getBytes())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.imported").value(1));
+
+        Hardware hw = hwRepo.findByAssetTag("HW-IMP-1").orElseThrow();
+        assertThat(hw.getName()).isEqualTo("Import Laptop");
+        assertThat(hw.getCategory()).isEqualTo("LAPTOP");
+        assertThat(hw.getManufacturer()).isEqualTo("Lenovo");
+        assertThat(hw.getStatus()).isEqualTo(Hardware.HardwareStatus.AVAILABLE);
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void importHardware_withExplicitStatus() throws Exception {
+        String csv = "\"Asset-Tag\";\"Name\";\"Status\"\r\n" +
+                     "\"HW-IMP-M\";\"Wartung Laptop\";\"MAINTENANCE\"\r\n";
+
+        mockMvc.perform(multipart("/api/v1/import/hardware")
+                .file(new MockMultipartFile("file", "hw.csv", "text/csv", csv.getBytes())))
+            .andExpect(status().isOk());
+
+        assertThat(hwRepo.findByAssetTag("HW-IMP-M").get().getStatus())
+            .isEqualTo(Hardware.HardwareStatus.MAINTENANCE);
+    }
+
+    // ── SOFTWARE IMPORT ──────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void importSoftware_verifyDbState() throws Exception {
+        String csv = "\"Name\";\"Hersteller\";\"Lizenzen gesamt\";\"Kosten/Lizenz\"\r\n" +
+                     "\"Test SW\";\"Vendor\";\"25\";\"19.90\"\r\n";
+
+        mockMvc.perform(multipart("/api/v1/import/software")
+                .file(new MockMultipartFile("file", "sw.csv", "text/csv", csv.getBytes())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.imported").value(1));
+
+        Software sw = swRepo.findAll().getFirst();
+        assertThat(sw.getName()).isEqualTo("Test SW");
+        assertThat(sw.getVendor()).isEqualTo("Vendor");
+        assertThat(sw.getTotalLicenses()).isEqualTo(25);
+        assertThat(sw.getUsedLicenses()).isZero();
+        assertThat(sw.getCostPerLicense()).isEqualByComparingTo("19.90");
+    }
+
+    // ── SECURITY ─────────────────────────────────────────────
 
     @Test
     @WithMockUser(roles = "VIEWER")
