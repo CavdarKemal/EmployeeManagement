@@ -72,13 +72,13 @@ class CsvImportServiceTest {
     }
 
     @Test
-    @DisplayName("importHardware – gültige CSV wird importiert")
+    @DisplayName("importHardware – neue Hardware wird importiert")
     void importHardware_success() {
         String csv = "\"Asset-Tag\";\"Name\";\"Kategorie\";\"Status\"\r\n" +
                      "\"HW-IMP-1\";\"Test Laptop\";\"LAPTOP\";\"AVAILABLE\"\r\n";
         MockMultipartFile file = new MockMultipartFile("file", "hw.csv", "text/csv", csv.getBytes());
 
-        when(hardwareRepo.existsByAssetTag("HW-IMP-1")).thenReturn(false);
+        when(hardwareRepo.findByAssetTag("HW-IMP-1")).thenReturn(java.util.Optional.empty());
         when(hardwareRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
         ImportResultDTO result = service.importHardware(file);
@@ -87,16 +87,54 @@ class CsvImportServiceTest {
     }
 
     @Test
-    @DisplayName("importSoftware – gültige CSV wird importiert")
+    @DisplayName("importHardware – bestehende Hardware wird aktualisiert")
+    void importHardware_existingUpdated() {
+        String csv = "\"Asset-Tag\";\"Name\";\"Hersteller\"\r\n" +
+                     "\"HW-EXIST\";\"Neu\";\"Lenovo\"\r\n";
+        MockMultipartFile file = new MockMultipartFile("file", "hw.csv", "text/csv", csv.getBytes());
+
+        Hardware existing = Hardware.builder().id(1L).assetTag("HW-EXIST").name("Alt")
+                .status(Hardware.HardwareStatus.AVAILABLE).build();
+        when(hardwareRepo.findByAssetTag("HW-EXIST")).thenReturn(java.util.Optional.of(existing));
+        when(hardwareRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        ImportResultDTO result = service.importHardware(file);
+
+        assertThat(result.getImported()).isEqualTo(1);
+        assertThat(existing.getName()).isEqualTo("Neu");
+        assertThat(existing.getManufacturer()).isEqualTo("Lenovo");
+    }
+
+    @Test
+    @DisplayName("importSoftware – neue Software wird importiert")
     void importSoftware_success() {
         String csv = "\"Name\";\"Hersteller\";\"Lizenzen gesamt\"\r\n" +
                      "\"Test SW\";\"Vendor\";\"10\"\r\n";
         MockMultipartFile file = new MockMultipartFile("file", "sw.csv", "text/csv", csv.getBytes());
 
+        when(softwareRepo.findByName("Test SW")).thenReturn(java.util.Optional.empty());
         when(softwareRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
         ImportResultDTO result = service.importSoftware(file);
 
         assertThat(result.getImported()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("importSoftware – bestehende Software wird aktualisiert")
+    void importSoftware_existingUpdated() {
+        String csv = "\"Name\";\"Hersteller\";\"Lizenzen gesamt\"\r\n" +
+                     "\"Existing SW\";\"NewVendor\";\"50\"\r\n";
+        MockMultipartFile file = new MockMultipartFile("file", "sw.csv", "text/csv", csv.getBytes());
+
+        Software existing = Software.builder().id(1L).name("Existing SW").vendor("OldVendor").totalLicenses(10).build();
+        when(softwareRepo.findByName("Existing SW")).thenReturn(java.util.Optional.of(existing));
+        when(softwareRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        ImportResultDTO result = service.importSoftware(file);
+
+        assertThat(result.getImported()).isEqualTo(1);
+        assertThat(existing.getVendor()).isEqualTo("NewVendor");
+        assertThat(existing.getTotalLicenses()).isEqualTo(50);
     }
 }

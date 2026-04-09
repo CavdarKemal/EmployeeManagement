@@ -175,6 +175,27 @@ class ImportControllerIT {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    void importHardware_existingUpdated() throws Exception {
+        hwRepo.save(Hardware.builder().assetTag("HW-IMP-UPD").name("Alt").manufacturer("Dell")
+                .status(Hardware.HardwareStatus.AVAILABLE).build());
+
+        String csv = "\"Asset-Tag\";\"Name\";\"Hersteller\";\"Notizen\"\r\n" +
+                     "\"HW-IMP-UPD\";\"Neu\";\"Lenovo\";\"Aktualisiert via Import\"\r\n";
+
+        mockMvc.perform(multipart("/api/v1/import/hardware")
+                .file(new MockMultipartFile("file", "hw.csv", "text/csv", csv.getBytes())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.imported").value(1));
+
+        Hardware updated = hwRepo.findByAssetTag("HW-IMP-UPD").orElseThrow();
+        assertThat(updated.getName()).isEqualTo("Neu");
+        assertThat(updated.getManufacturer()).isEqualTo("Lenovo");
+        assertThat(updated.getNotes()).isEqualTo("Aktualisiert via Import");
+        assertThat(hwRepo.count()).isEqualTo(1); // kein Duplikat
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
     void importHardware_withExplicitStatus() throws Exception {
         String csv = "\"Asset-Tag\";\"Name\";\"Status\"\r\n" +
                      "\"HW-IMP-M\";\"Wartung Laptop\";\"MAINTENANCE\"\r\n";
@@ -206,6 +227,27 @@ class ImportControllerIT {
         assertThat(sw.getTotalLicenses()).isEqualTo(25);
         assertThat(sw.getUsedLicenses()).isZero();
         assertThat(sw.getCostPerLicense()).isEqualByComparingTo("19.90");
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void importSoftware_existingUpdated() throws Exception {
+        swRepo.save(Software.builder().name("Alt SW").vendor("OldVendor").totalLicenses(5).build());
+
+        String csv = "\"Name\";\"Hersteller\";\"Lizenzen gesamt\";\"Kosten/Lizenz\"\r\n" +
+                     "\"Alt SW\";\"NewVendor\";\"25\";\"29.90\"\r\n";
+
+        mockMvc.perform(multipart("/api/v1/import/software")
+                .file(new MockMultipartFile("file", "sw.csv", "text/csv", csv.getBytes())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.imported").value(1));
+
+        var all = swRepo.findAll();
+        assertThat(all).hasSize(1); // kein Duplikat
+        Software updated = all.getFirst();
+        assertThat(updated.getVendor()).isEqualTo("NewVendor");
+        assertThat(updated.getTotalLicenses()).isEqualTo(25);
+        assertThat(updated.getCostPerLicense()).isEqualByComparingTo("29.90");
     }
 
     // ── SECURITY ─────────────────────────────────────────────

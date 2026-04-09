@@ -91,7 +91,24 @@ public class CsvImportService {
             Map<String, String> row = mapRow(headers, values);
             String assetTag = row.get("Asset-Tag");
             if (assetTag == null || assetTag.isBlank()) { result.getErrors().add("Zeile ohne Asset-Tag übersprungen"); result.setSkipped(result.getSkipped() + 1); return; }
-            if (hardwareRepo.existsByAssetTag(assetTag)) { result.getErrors().add("Asset-Tag bereits vorhanden: " + assetTag); result.setSkipped(result.getSkipped() + 1); return; }
+
+            // Existierend? → Aktualisieren
+            var existingHw = hardwareRepo.findByAssetTag(assetTag);
+            if (existingHw.isPresent()) {
+                Hardware hw = existingHw.get();
+                hw.setName(row.getOrDefault("Name", hw.getName()));
+                hw.setCategory(row.getOrDefault("Kategorie", hw.getCategory()));
+                hw.setManufacturer(row.get("Hersteller"));
+                hw.setModel(row.get("Modell"));
+                if (row.containsKey("Seriennummer")) hw.setSerialNumber(row.get("Seriennummer"));
+                if (row.containsKey("Status")) hw.setStatus(parseHwStatus(row.get("Status")));
+                if (row.containsKey("Kaufpreis")) hw.setPurchasePrice(parseBigDecimal(row.get("Kaufpreis")));
+                if (row.containsKey("Garantie bis")) hw.setWarrantyUntil(parseDate(row.get("Garantie bis")));
+                hw.setNotes(row.get("Notizen"));
+                hardwareRepo.save(hw);
+                result.setImported(result.getImported() + 1);
+                return;
+            }
 
             Hardware hw = Hardware.builder()
                     .assetTag(assetTag)
@@ -116,6 +133,23 @@ public class CsvImportService {
             Map<String, String> row = mapRow(headers, values);
             String name = row.get("Name");
             if (name == null || name.isBlank()) { result.getErrors().add("Zeile ohne Name übersprungen"); result.setSkipped(result.getSkipped() + 1); return; }
+
+            // Existierend (gleicher Name)? → Aktualisieren
+            var existingSw = softwareRepo.findByName(name);
+            if (existingSw.isPresent()) {
+                Software sw = existingSw.get();
+                if (row.containsKey("Hersteller")) sw.setVendor(row.get("Hersteller"));
+                if (row.containsKey("Version")) sw.setVersion(row.get("Version"));
+                if (row.containsKey("Kategorie")) sw.setCategory(row.get("Kategorie"));
+                if (row.containsKey("Lizenztyp")) sw.setLicenseType(row.get("Lizenztyp"));
+                if (row.containsKey("Lizenzen gesamt")) sw.setTotalLicenses(parseInt(row.get("Lizenzen gesamt"), sw.getTotalLicenses()));
+                if (row.containsKey("Kosten/Lizenz")) sw.setCostPerLicense(parseBigDecimal(row.get("Kosten/Lizenz")));
+                if (row.containsKey("Erneuerung")) sw.setRenewalDate(parseDate(row.get("Erneuerung")));
+                sw.setNotes(row.get("Notizen"));
+                softwareRepo.save(sw);
+                result.setImported(result.getImported() + 1);
+                return;
+            }
 
             Software sw = Software.builder()
                     .name(name)
