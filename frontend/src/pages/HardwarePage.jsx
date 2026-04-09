@@ -366,6 +366,8 @@ function HardwarePage({ toast }) {
         <Btn onClick={() => setShowForm(true)}>＋ Hardware</Btn>
       </div>
 
+      <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
+
       {/* Table */}
       <div
         style={{

@@ -197,6 +197,8 @@ function SoftwarePage({ toast }) {
         <Btn onClick={() => setShowForm(true)}>＋ Software</Btn>
       </div>
 
+      <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         {paged.map((sw) => {
           const pct      = Math.round((sw.usedLicenses / sw.totalLicenses) * 100);
