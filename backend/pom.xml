@@ -144,6 +144,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        <!-- PDF -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>itext-core</artifactId>
+            <version>9.1.0</version>
+            <type>pom</type>
+        </dependency>
     </dependencies>
 
     <build>

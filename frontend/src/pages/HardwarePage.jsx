@@ -9,6 +9,7 @@ import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
+import { downloadPdf } from "../utils/pdfDownload.js";
 import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
 
@@ -355,6 +356,7 @@ function HardwarePage({ toast }) {
           })}
         </div>
 
+        <Btn variant="secondary" onClick={() => downloadPdf("/reports/hardware", "Hardware-Inventar.pdf").catch(() => toast("PDF fehlgeschlagen"))}>PDF</Btn>
         <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
         <Btn variant="secondary" onClick={() => exportCSV(hardware, [
           { key: "assetTag", label: "Asset-Tag" }, { key: "name", label: "Name" },

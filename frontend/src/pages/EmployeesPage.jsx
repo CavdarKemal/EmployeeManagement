@@ -10,6 +10,7 @@ import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
+import { downloadPdf } from "../utils/pdfDownload.js";
 import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
 
@@ -237,6 +238,7 @@ function EmployeesPage({ toast }) {
             }}
           />
         </div>
+        <Btn variant="secondary" onClick={() => downloadPdf("/reports/employees", "Mitarbeiter-Bericht.pdf").catch(() => toast("PDF-Download fehlgeschlagen"))}>PDF</Btn>
         <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
         <Btn variant="secondary" onClick={() => exportCSV(employees, [
           { key: "employeeNumber", label: "Nr." }, { key: "firstName", label: "Vorname" },
