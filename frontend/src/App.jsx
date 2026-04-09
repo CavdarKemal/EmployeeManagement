@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
+import { ThemeProvider, useTheme } from "./context/ThemeContext.jsx";
 import Toast from "./components/Toast.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -134,6 +135,7 @@ function NavItem({ item, active, onClick, collapsed }) {
 
 function Shell() {
   const { user, logout } = useAuth();
+  const { mode, toggle, t } = useTheme();
   const [page, setPage]   = useState("dashboard");
   const [toast, setToast] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -158,7 +160,7 @@ function Shell() {
   const currentNav = NAV.find((n) => n.id === page);
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0f172a", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100vh", background: t.bg, overflow: "hidden", color: t.text }}>
 
       {/* Mobile overlay */}
       {isMobile && sidebarOpen && (
@@ -169,8 +171,8 @@ function Shell() {
       <div
         style={{
           width: isMobile ? 260 : (sidebarOpen ? 260 : 64),
-          background: "#1e293b",
-          borderRight: "1px solid #334155",
+          background: t.bgCard,
+          borderRight: `1px solid ${t.border}`,
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
@@ -296,15 +298,15 @@ function Shell() {
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          background: "#0f172a",
+          background: t.bg,
         }}
       >
         {/* Header bar */}
         <div
           style={{
             padding: isMobile ? "12px 16px" : "16px 32px",
-            background: "#0f172a",
-            borderBottom: "1px solid #1e293b",
+            background: t.bg,
+            borderBottom: `1px solid ${t.borderLight}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -338,11 +340,24 @@ function Shell() {
               {PAGE_SUBTITLES[page]}
             </div>
           </div>
-          {!isMobile && (
-            <span style={{ fontSize: 12, color: "#475569", fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
-              {new Date().toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            </span>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <button
+              onClick={toggle}
+              title={mode === "dark" ? "Light Mode" : "Dark Mode"}
+              style={{
+                background: "none", border: `1px solid ${t.border}`, borderRadius: "8px",
+                cursor: "pointer", padding: "6px 10px", fontSize: 16, lineHeight: 1, color: t.textMuted,
+                transition: "all 150ms ease",
+              }}
+            >
+              {mode === "dark" ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
+            {!isMobile && (
+              <span style={{ fontSize: 12, color: t.textFaint, fontFamily: "'DM Sans', sans-serif" }}>
+                {new Date().toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Content */}
@@ -358,8 +373,10 @@ function Shell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Shell />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Shell />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
