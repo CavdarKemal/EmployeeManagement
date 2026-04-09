@@ -74,6 +74,19 @@ class SoftwareControllerIT {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void createSoftware_withCategory_201() throws Exception {
+        String body = """
+            {"name":"VS Code","vendor":"Microsoft","category":"DEV_TOOLS","totalLicenses":50}
+            """;
+
+        mockMvc.perform(post("/api/v1/software")
+                .contentType(APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.category").value("DEV_TOOLS"));
+    }
+
+    @Test
     @WithMockUser(roles = "VIEWER")
     void getAllSoftware_200() throws Exception {
         repo.save(Software.builder().name("Figma").vendor("Figma Inc").totalLicenses(10).build());

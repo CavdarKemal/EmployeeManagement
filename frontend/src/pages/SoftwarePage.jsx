@@ -112,16 +112,64 @@ function SoftwarePage({ toast }) {
     }
   };
 
+  const [search, setSearch] = useState("");
+  const [filterCat, setFilterCat] = useState("ALL");
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const filtered = software.filter((sw) => {
+    const matchSearch = `${sw.name} ${sw.vendor || ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchCat = filterCat === "ALL" || sw.category === filterCat;
+    return matchSearch && matchCat;
+  });
+
   if (loading) return <Spinner text="Software laden …" />;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      {/* Toolbar */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}>
+            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+            <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Software oder Hersteller suchen …"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            style={{
+              width: "100%", padding: "10px 14px 10px 36px", borderRadius: "8px",
+              border: `1px solid ${searchFocused ? "#6366f1" : "#334155"}`,
+              fontSize: 13, outline: "none", background: "#0f172a", color: "#f1f5f9",
+              fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box",
+              boxShadow: searchFocused ? "0 0 0 3px rgba(99,102,241,0.15)" : "none",
+              transition: "border-color 150ms ease, box-shadow 150ms ease",
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {["ALL", "PRODUCTIVITY", "DEV_TOOLS", "DESIGN", "OS"].map((c) => {
+            const active = filterCat === c;
+            const labels = { ALL: "Alle", PRODUCTIVITY: "Produktivität", DEV_TOOLS: "Entwicklung", DESIGN: "Design", OS: "Betriebssystem" };
+            return (
+              <button key={c} onClick={() => setFilterCat(c)} style={{
+                padding: "7px 14px", borderRadius: "20px",
+                border: `1px solid ${active ? "#6366f1" : "#334155"}`,
+                background: active ? "rgba(99,102,241,0.12)" : "#1e293b",
+                color: active ? "#a5b4fc" : "#64748b", fontSize: 12,
+                fontWeight: active ? 600 : 400, fontFamily: "'DM Sans', sans-serif",
+                cursor: "pointer", transition: "all 150ms ease", whiteSpace: "nowrap",
+              }}>{labels[c] || c}</button>
+            );
+          })}
+        </div>
         <Btn onClick={() => setShowForm(true)}>＋ Software</Btn>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        {software.map((sw) => {
+        {filtered.map((sw) => {
           const pct      = Math.round((sw.usedLicenses / sw.totalLicenses) * 100);
           const low      = pct >= 85;
           const daysLeft = Math.ceil((new Date(sw.renewalDate) - new Date()) / (1000 * 86400));
