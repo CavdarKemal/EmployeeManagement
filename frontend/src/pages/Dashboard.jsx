@@ -25,19 +25,39 @@ function Dashboard() {
     ]).finally(() => setLoading(false));
   }, []);
 
+  const [filterDept, setFilterDept] = useState("ALL");
+
   if (loading) return <Spinner text="Dashboard laden …" />;
 
-  const active    = employees.filter((e) => e.active).length;
+  const allDepts = [...new Set(employees.map((e) => e.department).filter(Boolean))].sort();
+  const filteredEmps = filterDept === "ALL" ? employees : employees.filter((e) => e.department === filterDept);
+
+  const active    = filteredEmps.filter((e) => e.active).length;
   const available = hardware.filter((h) => h.status === "AVAILABLE").length;
   const loaned    = hardware.filter((h) => h.status === "LOANED").length;
   const totalLic  = software.reduce((a, s) => a + (s.totalLicenses || 0), 0);
   const usedLic   = software.reduce((a, s) => a + (s.usedLicenses || 0), 0);
+  const totalSalary = filteredEmps.filter((e) => e.active).reduce((a, e) => a + (e.salary || 0), 0);
+  const avgTenure = (() => {
+    const activeEmps = filteredEmps.filter((e) => e.active && e.hireDate);
+    if (activeEmps.length === 0) return 0;
+    const now = new Date();
+    const totalYears = activeEmps.reduce((a, e) => a + (now - new Date(e.hireDate)) / (365.25 * 86400000), 0);
+    return (totalYears / activeEmps.length).toFixed(1);
+  })();
 
   const stats = [
-    { key: "employees", label: "Aktive Mitarbeiter",  value: active,                    ...KPI_COLORS.employees },
-    { key: "available", label: "Hardware verfügbar",  value: available,                 ...KPI_COLORS.available },
-    { key: "loaned",    label: "Hardware ausgeliehen", value: loaned,                   ...KPI_COLORS.loaned    },
-    { key: "licenses",  label: "Lizenzen in Nutzung", value: `${usedLic}/${totalLic}`,  ...KPI_COLORS.licenses  },
+    { key: "employees", label: filterDept === "ALL" ? "Aktive Mitarbeiter" : `Mitarbeiter ${filterDept}`, value: active, ...KPI_COLORS.employees },
+    { key: "salary",    label: "Gehaltskosten/Jahr", value: `${(totalSalary / 1000).toFixed(0)}k €`, accent: "#10b981", bg: "rgba(16,185,129,0.12)", icon: "💰" },
+    { key: "tenure",    label: "Ø Betriebszugeh.", value: `${avgTenure} J.`, accent: "#f59e0b", bg: "rgba(245,158,11,0.12)", icon: "📅" },
+    { key: "licenses",  label: "Lizenzen in Nutzung", value: `${usedLic}/${totalLic}`, ...KPI_COLORS.licenses },
+  ];
+
+  const hwStats = [
+    { key: "available", label: "Verfügbar",  value: available, ...KPI_COLORS.available },
+    { key: "loaned",    label: "Ausgeliehen", value: loaned,   ...KPI_COLORS.loaned },
+    { key: "maintenance", label: "Wartung", value: hardware.filter((h) => h.status === "MAINTENANCE").length, accent: "#f59e0b", bg: "rgba(245,158,11,0.12)", icon: "🔧" },
+    { key: "retired",   label: "Ausgemustert", value: hardware.filter((h) => h.status === "RETIRED").length, accent: "#64748b", bg: "rgba(100,116,139,0.12)", icon: "📦" },
   ];
 
   const deptCounts = employees.reduce(
@@ -47,6 +67,23 @@ function Dashboard() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* Department Filter */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {["ALL", ...allDepts].map((d) => {
+          const active = filterDept === d;
+          return (
+            <button key={d} onClick={() => setFilterDept(d)} style={{
+              padding: "7px 14px", borderRadius: "20px",
+              border: `1px solid ${active ? "#6366f1" : "#334155"}`,
+              background: active ? "rgba(99,102,241,0.12)" : "#1e293b",
+              color: active ? "#a5b4fc" : "#64748b", fontSize: 12,
+              fontWeight: active ? 600 : 400, fontFamily: "'DM Sans', sans-serif",
+              cursor: "pointer", transition: "all 150ms ease",
+            }}>{d === "ALL" ? "Alle Abteilungen" : d}</button>
+          );
+        })}
+      </div>
 
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
@@ -89,6 +126,21 @@ function Dashboard() {
               >
                 {s.label}
               </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Hardware stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+        {hwStats.map((s) => (
+          <Card key={s.key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: "8px", background: s.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+              {s.icon}
+            </div>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#f1f5f9", fontFamily: "'Sora', sans-serif", lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2, fontFamily: "'DM Sans', sans-serif" }}>{s.label}</div>
             </div>
           </Card>
         ))}
