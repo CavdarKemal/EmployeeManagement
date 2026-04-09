@@ -9,6 +9,7 @@ import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
+import Pagination from "../components/Pagination.jsx";
 
 const CAT_EMOJI = { PRODUCTIVITY: "📊", DEV_TOOLS: "🛠️", DESIGN: "🎨", OS: "💾" };
 
@@ -126,12 +127,19 @@ function SoftwarePage({ toast }) {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("ALL");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+
+  useEffect(() => { setPage(0); }, [search, filterCat]);
 
   const filtered = software.filter((sw) => {
     const matchSearch = `${sw.name} ${sw.vendor || ""}`.toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCat === "ALL" || sw.category === filterCat;
     return matchSearch && matchCat;
   });
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
   if (loading) return <Spinner text="Software laden …" />;
 
@@ -187,7 +195,7 @@ function SoftwarePage({ toast }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        {filtered.map((sw) => {
+        {paged.map((sw) => {
           const pct      = Math.round((sw.usedLicenses / sw.totalLicenses) * 100);
           const low      = pct >= 85;
           const daysLeft = Math.ceil((new Date(sw.renewalDate) - new Date()) / (1000 * 86400));
@@ -338,6 +346,8 @@ function SoftwarePage({ toast }) {
           );
         })}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
 
       {showForm && (
         <SoftwareFormModal

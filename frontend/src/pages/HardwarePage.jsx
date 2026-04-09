@@ -9,6 +9,7 @@ import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
+import Pagination from "../components/Pagination.jsx";
 
 const FILTER_LABELS = {
   ALL:         "Alle",
@@ -229,6 +230,8 @@ function HardwarePage({ toast }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
 
   useEffect(() => {
     Promise.all([
@@ -238,11 +241,17 @@ function HardwarePage({ toast }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Page zurücksetzen bei Filter-/Suche-Änderung
+  useEffect(() => { setPage(0); }, [search, filter]);
+
   const filtered = hardware.filter((h) => {
     const matchSearch = `${h.name} ${h.assetTag} ${h.manufacturer}`.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "ALL" || h.status === filter;
     return matchSearch && matchFilter;
   });
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
 
   const handleDelete = async (id) => {
     try {
@@ -390,7 +399,7 @@ function HardwarePage({ toast }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((hw, idx) => {
+            {paged.map((hw, idx) => {
               const loan     = loans.find((l) => l.hardwareId === hw.id && !l.returnedAt);
               const assignee = loan ? employees.find((e) => e.id === loan.employeeId) : null;
               const st       = STATUS[hw.status] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)", label: hw.status };
@@ -484,6 +493,8 @@ function HardwarePage({ toast }) {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
 
       {loanDialog && (
         <LoanDialog

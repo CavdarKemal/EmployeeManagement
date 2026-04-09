@@ -10,6 +10,7 @@ import Input from "../components/Input.jsx";
 import Select from "../components/Select.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { exportCSV } from "../utils/csvExport.js";
+import Pagination from "../components/Pagination.jsx";
 
 
 // ── Employee Form Modal ──────────────────────────────────────
