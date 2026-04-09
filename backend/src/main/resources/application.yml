@@ -44,6 +44,21 @@ app:
     dir: ${UPLOAD_DIR:./uploads/photos}
   cors:
     allowed-origins: http://localhost:3000,http://localhost:5173
+  notification:
+    enabled: ${NOTIFICATION_ENABLED:false}
+    recipient: ${NOTIFICATION_EMAIL:admin@firma.de}
+    warranty-days: 30
+    renewal-days: 30
+
+spring:
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
 
 logging:
   level:
