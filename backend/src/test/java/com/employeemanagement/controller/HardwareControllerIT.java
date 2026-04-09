@@ -123,6 +123,19 @@ class HardwareControllerIT {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void createHardware_withNotes_201() throws Exception {
+        String body = """
+            {"assetTag":"HW-NOTE","name":"Notiz-Test","status":"AVAILABLE","notes":"Kratzer am Gehäuse"}
+            """;
+
+        mockMvc.perform(post("/api/v1/hardware")
+                .contentType(APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.notes").value("Kratzer am Gehäuse"));
+    }
+
+    @Test
     @WithMockUser(roles = "VIEWER")
     void getHardware_notFound_404() throws Exception {
         mockMvc.perform(get("/api/v1/hardware/999"))

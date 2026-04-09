@@ -152,7 +152,7 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
 function HardwareFormModal({ hardware, onSave, onClose, toast }) {
   const initial = hardware ?? {
     assetTag: "", name: "", category: "LAPTOP", manufacturer: "", model: "",
-    serialNumber: "", purchasePrice: "", warrantyUntil: "", status: "AVAILABLE",
+    serialNumber: "", purchasePrice: "", warrantyUntil: "", status: "AVAILABLE", notes: "",
   };
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState({});
@@ -196,6 +196,16 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
         <Input label="Seriennummer" value={form.serialNumber} onChange={(e) => set("serialNumber", e.target.value)} />
         <Input label="Kaufpreis (€)" type="number" value={form.purchasePrice} onChange={(e) => set("purchasePrice", e.target.value)} placeholder="2899" />
         <Input label="Garantie bis" type="date" value={form.warrantyUntil} onChange={(e) => set("warrantyUntil", e.target.value)} />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>Notizen</label>
+          <textarea
+            value={form.notes || ""}
+            onChange={(e) => set("notes", e.target.value)}
+            placeholder="Interne Bemerkungen …"
+            rows={3}
+            style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155", fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", resize: "vertical" }}
+          />
+        </div>
       </div>
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
@@ -413,6 +423,12 @@ function HardwarePage({ toast }) {
                     <div style={{ fontSize: 11, color: "#475569", marginTop: 2, fontFamily: "'DM Sans', sans-serif" }}>
                       {hw.manufacturer} · {hw.model}
                     </div>
+                    {hw.notes && (
+                      <div style={{ fontSize: 11, color: "#6366f1", marginTop: 3, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}
+                        title={hw.notes}>
+                        {hw.notes.length > 40 ? hw.notes.substring(0, 40) + "…" : hw.notes}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "14px 14px" }}>
                     <Badge label={hw.category} color="#94a3b8" bg="rgba(148,163,184,0.1)" sm />

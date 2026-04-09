@@ -22,7 +22,7 @@ const CAT_COLORS = {
 function SoftwareFormModal({ software, onSave, onClose, toast }) {
   const initial = software ?? {
     name: "", vendor: "", version: "", category: "PRODUCTIVITY",
-    licenseType: "SUBSCRIPTION", totalLicenses: 1, costPerLicense: "", renewalDate: "",
+    licenseType: "SUBSCRIPTION", totalLicenses: 1, costPerLicense: "", renewalDate: "", notes: "",
   };
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState({});
@@ -61,6 +61,16 @@ function SoftwareFormModal({ software, onSave, onClose, toast }) {
         <Input label="Anzahl Lizenzen" type="number" value={form.totalLicenses} onChange={(e) => set("totalLicenses", e.target.value)} placeholder="10" />
         <Input label="Kosten/Lizenz/Monat (€)" type="number" value={form.costPerLicense} onChange={(e) => set("costPerLicense", e.target.value)} placeholder="12.50" />
         <Input label="Erneuerungsdatum" type="date" value={form.renewalDate} onChange={(e) => set("renewalDate", e.target.value)} />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>Notizen</label>
+          <textarea
+            value={form.notes || ""}
+            onChange={(e) => set("notes", e.target.value)}
+            placeholder="Interne Bemerkungen …"
+            rows={3}
+            style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155", fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", resize: "vertical" }}
+          />
+        </div>
       </div>
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
@@ -281,6 +291,14 @@ function SoftwarePage({ toast }) {
                   {daysLeft > 0 ? ` (in ${daysLeft} Tagen)` : " ⚠️ abgelaufen"}
                 </span>
               </div>
+
+              {/* Notes */}
+              {sw.notes && (
+                <div style={{ fontSize: 12, color: "#6366f1", fontStyle: "italic", fontFamily: "'DM Sans', sans-serif", marginTop: 4 }}
+                  title={sw.notes}>
+                  {sw.notes.length > 60 ? sw.notes.substring(0, 60) + "…" : sw.notes}
+                </div>
+              )}
 
               {/* Warning banner */}
               {low && (
