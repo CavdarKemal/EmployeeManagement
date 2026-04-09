@@ -116,7 +116,7 @@ public class PdfReportService {
     // ── Helpers ──────────────────────────────────────────────
 
     private void addTitle(Document doc, String title, String subtitle) {
-        doc.add(new Paragraph(title).setFontSize(20).setBold().setFontColor(new DeviceRgb(15, 23, 42)));
+        doc.add(new Paragraph(title).setFontSize(20).setFontColor(new DeviceRgb(15, 23, 42)));
         doc.add(new Paragraph(subtitle).setFontSize(11).setFontColor(new DeviceRgb(100, 116, 139)).setMarginBottom(16));
         doc.add(new Paragraph("Erstellt am " + LocalDate.now().format(DE_DATE))
                 .setFontSize(9).setFontColor(new DeviceRgb(148, 163, 184)).setMarginBottom(12));
@@ -124,7 +124,7 @@ public class PdfReportService {
 
     private void addHeaderRow(Table table, String... headers) {
         for (String h : headers) {
-            table.addHeaderCell(new Cell().add(new Paragraph(h).setFontSize(9).setBold().setFontColor(ColorConstants.WHITE))
+            table.addHeaderCell(new Cell().add(new Paragraph(h).setFontSize(9).setFontColor(ColorConstants.WHITE))
                     .setBackgroundColor(HEADER_BG).setPadding(6));
         }
     }
