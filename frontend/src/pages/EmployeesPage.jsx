@@ -543,26 +543,40 @@ function EmployeesPage({ toast }) {
                     <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine Software zugewiesen</div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {empSoftware.map((a) => (
-                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#1e293b", borderRadius: "8px", border: "1px solid #334155" }}>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{a.softwareName}</div>
-                            <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{a.vendor}</div>
+                      {empSoftware.map((a) => {
+                        const isExpired = a.expired || (a.renewalDate && new Date(a.renewalDate) < new Date());
+                        return (
+                          <div key={a.id} style={{
+                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                            padding: "8px 12px", borderRadius: "8px",
+                            background: isExpired ? "rgba(239,68,68,0.05)" : "#1e293b",
+                            border: `1px solid ${isExpired ? "rgba(239,68,68,0.3)" : "#334155"}`,
+                            opacity: isExpired ? 0.7 : 1,
+                          }}>
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontSize: 13, fontWeight: 500, color: isExpired ? "#94a3b8" : "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{a.softwareName}</span>
+                                {isExpired && <Badge label="Deaktiviert" color="#ef4444" bg="rgba(239,68,68,0.12)" sm />}
+                              </div>
+                              <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{a.vendor}</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
+                                seit {new Date(a.assignedDate).toLocaleDateString("de-DE")}
+                              </span>
+                              {!isExpired && (
+                                <Btn sm variant="secondary" onClick={async () => {
+                                  try {
+                                    await api.post(`/software/${a.softwareId}/revoke/${selected}`);
+                                    setEmpSoftware((prev) => prev.filter((x) => x.id !== a.id));
+                                    toast("Lizenz entzogen");
+                                  } catch (err) { toast(err?.message || "Entzug fehlgeschlagen"); }
+                                }}>Entziehen</Btn>
+                              )}
+                            </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
-                              seit {new Date(a.assignedDate).toLocaleDateString("de-DE")}
-                            </span>
-                            <Btn sm variant="secondary" onClick={async () => {
-                              try {
-                                await api.post(`/software/${a.softwareId}/revoke/${selected}`);
-                                setEmpSoftware((prev) => prev.filter((x) => x.id !== a.id));
-                                toast("Lizenz entzogen");
-                              } catch (err) { toast(err?.message || "Entzug fehlgeschlagen"); }
-                            }}>Entziehen</Btn>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

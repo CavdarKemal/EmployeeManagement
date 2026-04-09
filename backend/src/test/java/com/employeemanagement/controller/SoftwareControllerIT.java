@@ -195,6 +195,22 @@ class SoftwareControllerIT {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    void assignLicense_expired_409() throws Exception {
+        Software sw = swRepo.save(Software.builder().name("Expired")
+                .totalLicenses(10).renewalDate(LocalDate.of(2024, 1, 1)).build());
+        Employee emp = empRepo.save(Employee.builder()
+            .employeeNumber("EMP-EXP").firstName("E").lastName("X")
+            .email("exp@test.de").hireDate(LocalDate.now()).build());
+
+        mockMvc.perform(post("/api/v1/software/" + sw.getId() + "/assign/" + emp.getId()))
+            .andExpect(status().isConflict());
+
+        // usedLicenses bleibt 0
+        assertThat(swRepo.findById(sw.getId()).get().getUsedLicenses()).isZero();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
     void assignLicense_noCapacity_409() throws Exception {
         Software sw = swRepo.save(Software.builder().name("Full").totalLicenses(1).usedLicenses(1).build());
         Employee emp = empRepo.save(Employee.builder()

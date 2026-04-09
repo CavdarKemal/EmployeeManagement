@@ -89,15 +89,50 @@ public class SoftwareService {
     public java.util.List<java.util.Map<String, Object>> getActiveAssignmentsForEmployee(Long employeeId) {
         return assignmentRepo.findActiveByEmployee(employeeId).stream().map(a -> {
             var sw = a.getSoftware();
-            return java.util.Map.<String, Object>of(
-                "id", a.getId(),
-                "softwareId", sw.getId(),
-                "softwareName", sw.getName(),
-                "vendor", sw.getVendor() != null ? sw.getVendor() : "",
-                "assignedDate", a.getAssignedDate().toString(),
-                "licenseKey", a.getLicenseKey() != null ? a.getLicenseKey() : ""
-            );
+            boolean isExpired = a.isExpired() || (sw.getRenewalDate() != null && sw.getRenewalDate().isBefore(java.time.LocalDate.now()));
+            var map = new java.util.HashMap<String, Object>();
+            map.put("id", a.getId());
+            map.put("softwareId", sw.getId());
+            map.put("softwareName", sw.getName());
+            map.put("vendor", sw.getVendor() != null ? sw.getVendor() : "");
+            map.put("assignedDate", a.getAssignedDate().toString());
+            map.put("licenseKey", a.getLicenseKey() != null ? a.getLicenseKey() : "");
+            map.put("expired", isExpired);
+            map.put("renewalDate", sw.getRenewalDate() != null ? sw.getRenewalDate().toString() : null);
+            return (java.util.Map<String, Object>) map;
         }).toList();
+    }
+
+    /**
+     * Deaktiviert alle aktiven Zuweisungen für abgelaufene Software.
+     * Wird vom Scheduled Job aufgerufen.
+     */
+    public int deactivateExpiredAssignments() {
+        var expiredSoftware = softwareRepo.findAll().stream()
+                .filter(sw -> sw.getRenewalDate() != null && sw.getRenewalDate().isBefore(java.time.LocalDate.now()))
+                .toList();
+
+        int count = 0;
+        for (Software sw : expiredSoftware) {
+            var assignments = assignmentRepo.findActiveByEmployee(null); // need all active for this software
+            // Use direct query instead
+        }
+        // Simpler approach: query all non-expired active assignments and check
+        var all = assignmentRepo.findAll().stream()
+                .filter(a -> a.getRevokedDate() == null && !a.isExpired())
+                .filter(a -> {
+                    var sw = a.getSoftware();
+                    return sw.getRenewalDate() != null && sw.getRenewalDate().isBefore(java.time.LocalDate.now());
+                })
+                .toList();
+
+        for (var a : all) {
+            a.setExpired(true);
+            assignmentRepo.save(a);
+            count++;
+        }
+        if (count > 0) log.info("Abgelaufene Lizenzen deaktiviert: {}", count);
+        return count;
     }
 
     public void assignLicense(Long softwareId, Long employeeId, String licenseKey) {
@@ -106,6 +141,10 @@ public class SoftwareService {
 
         Employee emp = employeeRepo.findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mitarbeiter", employeeId));
+
+        // Ablauf-Check
+        if (sw.getRenewalDate() != null && sw.getRenewalDate().isBefore(java.time.LocalDate.now()))
+            throw new BusinessException("Lizenz abgelaufen am " + sw.getRenewalDate() + ". Zuweisung nicht möglich.");
 
         // Duplikat-Check
         boolean alreadyAssigned = assignmentRepo.existsActiveAssignment(employeeId, softwareId);

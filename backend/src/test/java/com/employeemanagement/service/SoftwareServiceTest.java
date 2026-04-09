@@ -109,6 +109,21 @@ class SoftwareServiceTest {
     }
 
     @Test
+    @DisplayName("assignLicense – abgelaufene Lizenz wirft BusinessException")
+    void assignLicense_expired() {
+        Software sw = Software.builder().id(1L).name("Expired").totalLicenses(10).usedLicenses(0)
+                .renewalDate(LocalDate.of(2024, 1, 1)).build();
+        Employee emp = Employee.builder().id(1L).firstName("T").lastName("T").email("t@t.de")
+                .employeeNumber("EMP-T").hireDate(LocalDate.now()).build();
+
+        when(softwareRepo.findById(1L)).thenReturn(Optional.of(sw));
+        when(employeeRepo.findById(1L)).thenReturn(Optional.of(emp));
+
+        assertThrows(BusinessException.class, () -> service.assignLicense(1L, 1L, null));
+        verify(assignmentRepo, never()).save(any());
+    }
+
+    @Test
     @DisplayName("assignLicense – bereits zugewiesen wirft BusinessException")
     void assignLicense_alreadyAssigned() {
         Software sw = Software.builder().id(1L).name("IntelliJ").totalLicenses(10).usedLicenses(2).build();

@@ -206,6 +206,7 @@ function SoftwarePage({ toast }) {
           const pct      = Math.round((sw.usedLicenses / sw.totalLicenses) * 100);
           const low      = pct >= 85;
           const daysLeft = Math.ceil((new Date(sw.renewalDate) - new Date()) / (1000 * 86400));
+          const isExpired = sw.renewalDate && new Date(sw.renewalDate) < new Date();
           const catEmoji = CAT_EMOJI[sw.category] || "💾";
           const catStyle = CAT_COLORS[sw.category] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)" };
           const barColor = low ? "#f59e0b" : "#6366f1";
@@ -341,9 +342,16 @@ function SoftwarePage({ toast }) {
                 </div>
               )}
 
+              {/* Expired warning */}
+              {isExpired && (
+                <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "6px", fontSize: 12, color: "#ef4444", fontFamily: "'DM Sans', sans-serif" }}>
+                  Lizenz abgelaufen — keine neuen Zuweisungen möglich
+                </div>
+              )}
+
               {/* Actions */}
               <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                <Btn sm variant="secondary" onClick={() => setAssignDialog(sw)} disabled={sw.usedLicenses >= sw.totalLicenses}>
+                <Btn sm variant="secondary" onClick={() => setAssignDialog(sw)} disabled={isExpired || sw.usedLicenses >= sw.totalLicenses}>
                   Zuweisen
                 </Btn>
                 <Btn sm variant="secondary" onClick={() => { setEditSw(sw); setShowForm(true); }}>Bearbeiten</Btn>
