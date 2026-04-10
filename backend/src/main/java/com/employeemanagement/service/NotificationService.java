@@ -1,8 +1,10 @@
 package com.employeemanagement.service;
 
 import com.employeemanagement.model.Hardware;
+import com.employeemanagement.model.Loan;
 import com.employeemanagement.model.Software;
 import com.employeemanagement.repository.HardwareRepository;
+import com.employeemanagement.repository.LoanRepository;
 import com.employeemanagement.repository.SoftwareRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ public class NotificationService {
     private final JavaMailSender mailSender;
     private final HardwareRepository hardwareRepo;
     private final SoftwareRepository softwareRepo;
+    private final LoanRepository loanRepo;
 
     @Value("${app.notification.recipient}")
     private String recipient;
@@ -36,6 +39,9 @@ public class NotificationService {
     @Value("${app.notification.renewal-days:30}")
     private int renewalDays;
 
+    @Value("${app.notification.return-days:7}")
+    private int returnDays;
+
     @Value("${spring.mail.username:noreply@employeemanagement.de}")
     private String fromAddress;
 
@@ -44,9 +50,10 @@ public class NotificationService {
      */
     @Scheduled(cron = "0 0 8 * * *")
     public void checkExpirations() {
-        log.info("Prüfe Garantie-Abläufe und Lizenz-Erneuerungen...");
+        log.info("Prüfe Garantie-Abläufe, Lizenz-Erneuerungen und Rückgabe-Termine...");
         checkWarrantyExpiration();
         checkLicenseRenewal();
+        checkHardwareReturns();
     }
 
     public void checkWarrantyExpiration() {
@@ -85,16 +92,78 @@ public class NotificationService {
         log.info("Lizenz-Erneuerung gesendet: {} Titel", expiring.size());
     }
 
+    public void checkHardwareReturns() {
+        LocalDate threshold = LocalDate.now().plusDays(returnDays);
+        List<Loan> due = loanRepo.findDueReturns(threshold);
+        if (due.isEmpty()) return;
+
+        // A) Sammel-Mail an Admin
+        String summary = due.stream()
+                .map(l -> String.format("  - %s (%s) — Mitarbeiter: %s %s — Rückgabe bis %s",
+                        l.getHardware().getName(),
+                        l.getHardware().getAssetTag(),
+                        l.getEmployee().getFirstName(),
+                        l.getEmployee().getLastName(),
+                        l.getReturnDate()))
+                .collect(Collectors.joining("\n"));
+
+        sendMail(
+                recipient,
+                "Hardware-Rückgabe: " + due.size() + " offene Ausleihen",
+                "Folgende Ausleihen sind in den nächsten " + returnDays + " Tagen fällig (oder bereits überfällig):\n\n" + summary
+        );
+        log.info("Rückgabe-Sammel-Mail an Admin gesendet: {} Ausleihen", due.size());
+
+        // B) Direkt-Mail an jeden betroffenen Mitarbeiter
+        int sent = 0;
+        for (Loan loan : due) {
+            String empMail = loan.getEmployee().getEmail();
+            if (empMail == null || empMail.isBlank()) continue;
+
+            LocalDate returnBy = loan.getReturnDate();
+            boolean overdue = returnBy.isBefore(LocalDate.now());
+            String subject = overdue
+                    ? "Überfällige Hardware-Rückgabe: " + loan.getHardware().getName()
+                    : "Erinnerung: Hardware-Rückgabe am " + returnBy;
+
+            String body = String.format(
+                    "Hallo %s,%n%n" +
+                    "dies ist eine %s bezüglich deiner ausgeliehenen Hardware:%n%n" +
+                    "  Gerät:       %s%n" +
+                    "  Asset-Tag:   %s%n" +
+                    "  Ausgeliehen: %s%n" +
+                    "  Rückgabe %s: %s%n%n" +
+                    "Bitte gib das Gerät rechtzeitig bei der IT zurück.",
+                    loan.getEmployee().getFirstName(),
+                    overdue ? "Mahnung" : "Erinnerung",
+                    loan.getHardware().getName(),
+                    loan.getHardware().getAssetTag(),
+                    loan.getLoanDate(),
+                    overdue ? "war fällig am" : "bis",
+                    returnBy
+            );
+
+            if (sendMail(empMail, subject, body)) sent++;
+        }
+        log.info("Rückgabe-Erinnerungen an Mitarbeiter verschickt: {}/{}", sent, due.size());
+    }
+
     private void sendMail(String subject, String text) {
+        sendMail(recipient, subject, text);
+    }
+
+    private boolean sendMail(String to, String subject, String text) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromAddress);
-            message.setTo(recipient);
+            message.setTo(to);
             message.setSubject("[EmployeeManagement] " + subject);
             message.setText(text + "\n\n— EmployeeManagement System");
             mailSender.send(message);
+            return true;
         } catch (Exception e) {
-            log.error("E-Mail konnte nicht gesendet werden: {}", e.getMessage());
+            log.error("E-Mail an {} konnte nicht gesendet werden: {}", to, e.getMessage());
+            return false;
         }
     }
 }

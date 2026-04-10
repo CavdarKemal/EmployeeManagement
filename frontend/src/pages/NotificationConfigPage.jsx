@@ -67,6 +67,7 @@ function NotificationConfigPage({ toast }) {
             { label: "Empfänger", value: config?.recipient || "—" },
             { label: "Garantie-Warnung", value: `${config?.warrantyDays || 30} Tage vorher` },
             { label: "Lizenz-Warnung", value: `${config?.renewalDays || 30} Tage vorher` },
+            { label: "Rückgabe-Erinnerung", value: `${config?.returnDays || 7} Tage vorher` },
           ].map((item) => (
             <div key={item.label}>
               <div style={{ fontSize: 11, color: "#64748b", fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>
@@ -109,8 +110,9 @@ function NotificationConfigPage({ toast }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[
-            { icon: "🔧", title: "Garantie-Ablauf", desc: "Hardware-Geräte deren Garantie in den nächsten N Tagen abläuft." },
-            { icon: "🔑", title: "Lizenz-Erneuerung", desc: "Software-Lizenzen die in den nächsten N Tagen erneuert werden müssen." },
+            { icon: "🔧", title: "Garantie-Ablauf", desc: "Hardware-Geräte deren Garantie in den nächsten N Tagen abläuft. Empfänger: Admin." },
+            { icon: "🔑", title: "Lizenz-Erneuerung", desc: "Software-Lizenzen die in den nächsten N Tagen erneuert werden müssen. Empfänger: Admin." },
+            { icon: "📦", title: "Hardware-Rückgabe", desc: "Ausleihen mit geplanter Rückgabe in den nächsten N Tagen. Empfänger: Admin (Sammelmail) + jeder betroffene Mitarbeiter direkt." },
           ].map((n) => (
             <div key={n.title} style={{ display: "flex", gap: 12, padding: "10px 14px", background: "#0f172a", borderRadius: "8px", border: "1px solid #334155" }}>
               <span style={{ fontSize: 20 }}>{n.icon}</span>

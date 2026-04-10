@@ -18,4 +18,13 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
     @Query("SELECT l FROM Loan l WHERE l.employee.id = :empId ORDER BY l.loanDate DESC")
     List<Loan> findAllByEmployeeId(@Param("empId") Long employeeId);
+
+    @Query("""
+        SELECT l FROM Loan l
+        WHERE l.returnedAt IS NULL
+          AND l.returnDate IS NOT NULL
+          AND l.returnDate <= :threshold
+        ORDER BY l.returnDate
+        """)
+    List<Loan> findDueReturns(@Param("threshold") java.time.LocalDate threshold);
 }

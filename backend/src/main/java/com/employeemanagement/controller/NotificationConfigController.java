@@ -33,6 +33,9 @@ public class NotificationConfigController {
     @Value("${app.notification.renewal-days:30}")
     private int renewalDays;
 
+    @Value("${app.notification.return-days:7}")
+    private int returnDays;
+
     @Value("${spring.mail.host:}")
     private String mailHost;
 
@@ -47,6 +50,7 @@ public class NotificationConfigController {
                 "recipient", recipient,
                 "warrantyDays", warrantyDays,
                 "renewalDays", renewalDays,
+                "returnDays", returnDays,
                 "mailHost", mailHost,
                 "mailUsername", mailUsername != null ? mailUsername : ""
         ));

@@ -63,6 +63,7 @@ app:
     recipient: ${NOTIFICATION_EMAIL:admin@firma.de}
     warranty-days: 30
     renewal-days: 30
+    return-days: 7
 
 logging:
   level:
