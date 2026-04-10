@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import Input from "../components/Input.jsx";
+import PasswordInput from "../components/PasswordInput.jsx";
 import Btn from "../components/Button.jsx";
 
 function LoginPage() {
@@ -96,13 +97,28 @@ function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="admin@firma.de"
           />
-          <Input
-            label="Passwort"
-            type="password"
-            value={pass}
-            onChange={(e) => setPass(e.target.value)}
-            placeholder="••••••••"
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}>
+              Passwort
+            </label>
+            <PasswordInput
+              value={pass}
+              onChange={setPass}
+              placeholder="••••••••"
+              inputStyle={{
+                padding: "10px 14px",
+                borderRadius: "8px",
+                border: "1px solid #334155",
+                fontSize: 13,
+                color: "#f1f5f9",
+                outline: "none",
+                background: "#0f172a",
+                boxSizing: "border-box",
+                width: "100%",
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            />
+          </div>
           {err && (
             <div style={{ color: "#ef4444", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
               {err}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api/index.js";
 import Spinner from "../components/Spinner.jsx";
+import PasswordInput from "../components/PasswordInput.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const ROLES = ["ADMIN", "HR", "IT", "VIEWER"];
@@ -492,6 +493,7 @@ export function AdminPage({ toast }) {
 
 function CreateUserModal({ onSave, onClose }) {
   const [form, setForm] = useState({ email: "", displayName: "", role: "VIEWER", initialPassword: "" });
+  const [confirmPw, setConfirmPw] = useState("");
   const [errors, setErrors] = useState({});
   const [fieldFocus, setFieldFocus] = useState({});
 
@@ -502,6 +504,7 @@ function CreateUserModal({ onSave, onClose }) {
     if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Gültige E-Mail erforderlich";
     if (!form.displayName) e.displayName = "Pflichtfeld";
     if (!form.initialPassword || form.initialPassword.length < 8) e.initialPassword = "Mindestens 8 Zeichen";
+    else if (form.initialPassword !== confirmPw) e.initialPassword = "Passwörter stimmen nicht überein";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -649,16 +652,16 @@ function CreateUserModal({ onSave, onClose }) {
             <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
               Initiales Passwort *
             </label>
-            <input
-              type="password"
+            <PasswordInput
               value={form.initialPassword}
-              onChange={(e) => set("initialPassword", e.target.value)}
-              onFocus={() => setFieldFocus((f) => ({ ...f, initialPassword: true }))}
-              onBlur={() => setFieldFocus((f) => ({ ...f, initialPassword: false }))}
+              onChange={(v) => set("initialPassword", v)}
+              confirmValue={confirmPw}
+              onConfirmChange={setConfirmPw}
+              verify
               placeholder="Mindestens 8 Zeichen"
-              style={inputStyle("initialPassword")}
+              inputStyle={inputStyle("initialPassword")}
+              error={errors.initialPassword}
             />
-            {errors.initialPassword && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>{errors.initialPassword}</div>}
             <div style={{ fontSize: 11, color: "#475569", marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
               Der Benutzer sollte das Passwort beim ersten Login ändern.
             </div>
@@ -738,10 +741,13 @@ function ConfirmDialog({ action, onConfirm, onClose }) {
   const isEdit   = action.type === "edit";
   const willLock = action.user.accountNonLocked;
   const [newPw, setNewPw] = useState("");
+  const [newPwConfirm, setNewPwConfirm] = useState("");
   const [editForm, setEditForm] = useState({
     email: action.user.email,
     displayName: action.user.displayName,
   });
+
+  const pwValid = newPw.length >= 8 && newPw === newPwConfirm;
 
   const dialogStyle = {
     position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
@@ -793,13 +799,18 @@ function ConfirmDialog({ action, onConfirm, onClose }) {
           </>
         )}
         {isPw && (
-          <input
-            type="password"
-            value={newPw}
-            onChange={(e) => setNewPw(e.target.value)}
-            placeholder="Neues Passwort (mind. 8 Zeichen)"
-            style={{ ...inputCss, marginBottom: 20 }}
-          />
+          <div style={{ marginBottom: 20, textAlign: "left" }}>
+            <PasswordInput
+              value={newPw}
+              onChange={setNewPw}
+              confirmValue={newPwConfirm}
+              onConfirmChange={setNewPwConfirm}
+              verify
+              autoFocus
+              placeholder="Neues Passwort (mind. 8 Zeichen)"
+              inputStyle={{ ...inputCss, marginBottom: 0 }}
+            />
+          </div>
         )}
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button onClick={onClose} style={{ ...btnBase, border: "1px solid #334155", background: "transparent", color: "#94a3b8" }}>
@@ -811,11 +822,11 @@ function ConfirmDialog({ action, onConfirm, onClose }) {
               if (isPw)     return onConfirm(newPw);
               return onConfirm();
             }}
-            disabled={(isPw && newPw.length < 8) || (isEdit && !editValid)}
+            disabled={(isPw && !pwValid) || (isEdit && !editValid)}
             style={{
               ...btnBase, border: "none", color: "#fff", fontWeight: 600,
               background: isEdit ? "#6366f1" : isDelete ? "#ef4444" : isPw ? "#6366f1" : willLock ? "#ef4444" : "#10b981",
-              opacity: (isPw && newPw.length < 8) || (isEdit && !editValid) ? 0.5 : 1,
+              opacity: (isPw && !pwValid) || (isEdit && !editValid) ? 0.5 : 1,
             }}
           >
             {isEdit ? "Speichern" : isDelete ? "Löschen" : isPw ? "Zurücksetzen" : willLock ? "Sperren" : "Entsperren"}
