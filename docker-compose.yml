@@ -45,6 +45,13 @@ services:
       APP_JWT_EXPIRATION_MS:      ${JWT_EXPIRATION_MS:-86400000}
       APP_UPLOAD_DIR:             /app/uploads
       JAVA_OPTS:                  "-Xms256m -Xmx512m"
+      # E-Mail-Benachrichtigungen (aus .env)
+      NOTIFICATION_ENABLED:       ${NOTIFICATION_ENABLED:-false}
+      NOTIFICATION_EMAIL:         ${NOTIFICATION_EMAIL:-admin@firma.de}
+      MAIL_HOST:                  ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT:                  ${MAIL_PORT:-587}
+      MAIL_USERNAME:              ${MAIL_USERNAME:-}
+      MAIL_PASSWORD:              ${MAIL_PASSWORD:-}
     volumes:
       - uploads:/app/uploads
     ports:
