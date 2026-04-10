@@ -6,8 +6,8 @@ import Btn from "../components/Button.jsx";
 
 function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("admin@firma.de");
-  const [pass, setPass]   = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [pass, setPass]   = useState("");
   const [err, setErr]     = useState("");
   const [loading, setLoading] = useState(false);
 
