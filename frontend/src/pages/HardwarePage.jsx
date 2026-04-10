@@ -12,6 +12,8 @@ import { exportCSV } from "../utils/csvExport.js";
 import { downloadPdf } from "../utils/pdfDownload.js";
 import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { canWriteHardware, canDeleteHardware, canLoanHardware, canImport } from "../utils/permissions.js";
 
 const FILTER_LABELS = {
   ALL:         "Alle",
@@ -221,6 +223,11 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
 
 // ── Hardware Page ────────────────────────────────────────────
 function HardwarePage({ toast }) {
+  const { user } = useAuth();
+  const mayWrite  = canWriteHardware(user);
+  const mayDelete = canDeleteHardware(user);
+  const mayLoan   = canLoanHardware(user);
+  const mayImport = canImport(user);
   const [hardware, setHardware] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loans, setLoans]       = useState([]);
@@ -357,7 +364,7 @@ function HardwarePage({ toast }) {
         </div>
 
         <Btn variant="secondary" onClick={() => downloadPdf("/reports/hardware", "Hardware-Inventar.pdf").catch(() => toast("PDF fehlgeschlagen"))}>PDF</Btn>
-        <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
+        {mayImport && <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>}
         <Btn variant="secondary" onClick={() => exportCSV(hardware, [
           { key: "assetTag", label: "Asset-Tag" }, { key: "name", label: "Name" },
           { key: "category", label: "Kategorie" }, { key: "manufacturer", label: "Hersteller" },
@@ -365,7 +372,7 @@ function HardwarePage({ toast }) {
           { key: "status", label: "Status" }, { key: "purchasePrice", label: "Kaufpreis" },
           { key: "warrantyUntil", label: "Garantie bis" }, { key: "notes", label: "Notizen" },
         ], "Hardware")}>CSV Export</Btn>
-        <Btn onClick={() => setShowForm(true)}>＋ Hardware</Btn>
+        {mayWrite && <Btn onClick={() => setShowForm(true)}>＋ Hardware</Btn>}
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
@@ -485,13 +492,13 @@ function HardwarePage({ toast }) {
                   </td>
                   <td style={{ padding: "14px 14px" }}>
                     <div style={{ display: "flex", gap: 4 }}>
-                      {hw.status !== "RETIRED" && (
+                      {hw.status !== "RETIRED" && mayLoan && (
                         <Btn sm variant="secondary" onClick={() => setLoanDialog(hw)}>
                           {hw.status === "LOANED" ? "Rückgabe" : "Ausleihen"}
                         </Btn>
                       )}
-                      <Btn sm variant="secondary" onClick={() => { setEditHw(hw); setShowForm(true); }}>Bearbeiten</Btn>
-                      <Btn sm variant="danger" onClick={() => setConfirmDelete(hw)}>Löschen</Btn>
+                      {mayWrite && <Btn sm variant="secondary" onClick={() => { setEditHw(hw); setShowForm(true); }}>Bearbeiten</Btn>}
+                      {mayDelete && <Btn sm variant="danger" onClick={() => setConfirmDelete(hw)}>Löschen</Btn>}
                     </div>
                   </td>
                 </tr>

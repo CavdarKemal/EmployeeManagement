@@ -61,9 +61,9 @@ const NAV = [
   { id: "employees", label: "Mitarbeiter",         Icon: IconEmployees },
   { id: "hardware",  label: "Hardware",            Icon: IconHardware  },
   { id: "software",  label: "Software & Lizenzen", Icon: IconSoftware  },
-  { id: "admin",     label: "Benutzer",            Icon: IconAdmin     },
-  { id: "audit",     label: "Audit-Log",           Icon: IconAdmin     },
-  { id: "notify",    label: "Benachrichtigungen", Icon: IconAdmin     },
+  { id: "admin",     label: "Benutzer",            Icon: IconAdmin,     adminOnly: true },
+  { id: "audit",     label: "Audit-Log",           Icon: IconAdmin,     adminOnly: true },
+  { id: "notify",    label: "Benachrichtigungen", Icon: IconAdmin,     adminOnly: true },
 ];
 
 const PAGE_SUBTITLES = {
@@ -160,7 +160,10 @@ function Shell() {
     notify:    <NotificationConfigPage toast={showToast} />,
   };
 
-  const currentNav = NAV.find((n) => n.id === page);
+  // Reset auf Dashboard, wenn die aktuelle Seite admin-only ist und der User kein Admin
+  const currentNavRaw = NAV.find((n) => n.id === page);
+  const effectivePage = currentNavRaw?.adminOnly && user?.role !== "ADMIN" ? "dashboard" : page;
+  const currentNav = NAV.find((n) => n.id === effectivePage);
 
   return (
     <div style={{ display: "flex", height: "100vh", background: t.bg, overflow: "hidden", color: t.text }}>
@@ -216,11 +219,11 @@ function Shell() {
 
         {/* Nav */}
         <nav style={{ flex: 1, paddingTop: 4 }}>
-          {NAV.map((item) => (
+          {NAV.filter((item) => !item.adminOnly || user?.role === "ADMIN").map((item) => (
             <NavItem
               key={item.id}
               item={item}
-              active={page === item.id}
+              active={effectivePage === item.id}
               collapsed={!sidebarOpen && !isMobile}
               onClick={() => { setPage(item.id); if (isMobile) setSidebarOpen(false); }}
             />
@@ -365,7 +368,7 @@ function Shell() {
 
         {/* Content */}
         <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "16px 12px" : "24px 32px" }}>
-          {pages[page]}
+          {pages[effectivePage]}
         </div>
       </div>
 

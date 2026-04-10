@@ -13,6 +13,8 @@ import { exportCSV } from "../utils/csvExport.js";
 import { downloadPdf } from "../utils/pdfDownload.js";
 import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { canWriteEmployees, canDeleteEmployees, canImport, canLoanHardware, canAssignSoftware } from "../utils/permissions.js";
 
 
 // ── Employee Form Modal ──────────────────────────────────────
@@ -128,6 +130,12 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
 
 // ── Employees Page ───────────────────────────────────────────
 function EmployeesPage({ toast }) {
+  const { user } = useAuth();
+  const mayWrite  = canWriteEmployees(user);
+  const mayDelete = canDeleteEmployees(user);
+  const mayImport = canImport(user);
+  const mayLoanHw = canLoanHardware(user);
+  const maySw     = canAssignSoftware(user);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -197,14 +205,16 @@ function EmployeesPage({ toast }) {
       {checked.size > 0 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 14px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: "8px" }}>
           <span style={{ fontSize: 13, color: "#a5b4fc", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>{checked.size} ausgewählt</span>
-          <Btn sm variant="danger" onClick={async () => {
-            try {
-              await api.post("/batch/employees/deactivate", [...checked]);
-              setEmployees((prev) => prev.filter((e) => !checked.has(e.id)));
-              toast(`${checked.size} Mitarbeiter deaktiviert`);
-              setChecked(new Set());
-            } catch { toast("Batch-Aktion fehlgeschlagen"); }
-          }}>Deaktivieren</Btn>
+          {mayWrite && (
+            <Btn sm variant="danger" onClick={async () => {
+              try {
+                await api.post("/batch/employees/deactivate", [...checked]);
+                setEmployees((prev) => prev.filter((e) => !checked.has(e.id)));
+                toast(`${checked.size} Mitarbeiter deaktiviert`);
+                setChecked(new Set());
+              } catch { toast("Batch-Aktion fehlgeschlagen"); }
+            }}>Deaktivieren</Btn>
+          )}
           <Btn sm variant="ghost" onClick={() => setChecked(new Set())}>Auswahl aufheben</Btn>
         </div>
       )}
@@ -241,7 +251,7 @@ function EmployeesPage({ toast }) {
           />
         </div>
         <Btn variant="secondary" onClick={() => downloadPdf("/reports/employees", "Mitarbeiter-Bericht.pdf").catch(() => toast("PDF-Download fehlgeschlagen"))}>PDF</Btn>
-        <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
+        {mayImport && <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>}
         <Btn variant="secondary" onClick={() => exportCSV(employees, [
           { key: "employeeNumber", label: "Nr." }, { key: "firstName", label: "Vorname" },
           { key: "lastName", label: "Nachname" }, { key: "email", label: "E-Mail" },
@@ -251,7 +261,7 @@ function EmployeesPage({ toast }) {
           { key: "zipCode", label: "PLZ" }, { key: "city", label: "Stadt" },
           { key: "country", label: "Land" },
         ], "Mitarbeiter")}>CSV Export</Btn>
-        <Btn onClick={() => { setEditEmp(null); setShowForm(true); }}>＋ Mitarbeiter</Btn>
+        {mayWrite && <Btn onClick={() => { setEditEmp(null); setShowForm(true); }}>＋ Mitarbeiter</Btn>}
       </div>
 
       {loading && <Spinner text="Mitarbeiter laden …" />}
@@ -419,12 +429,16 @@ function EmployeesPage({ toast }) {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <Btn sm variant="secondary" onClick={() => { setEditEmp(emp); setShowForm(true); }}>
-                      Bearbeiten
-                    </Btn>
-                    <Btn sm variant="danger" onClick={() => setConfirmDelete(emp)}>
-                      Löschen
-                    </Btn>
+                    {mayWrite && (
+                      <Btn sm variant="secondary" onClick={() => { setEditEmp(emp); setShowForm(true); }}>
+                        Bearbeiten
+                      </Btn>
+                    )}
+                    {mayDelete && (
+                      <Btn sm variant="danger" onClick={() => setConfirmDelete(emp)}>
+                        Löschen
+                      </Btn>
+                    )}
                   </div>
                 </div>
               </div>
@@ -478,16 +492,18 @@ function EmployeesPage({ toast }) {
                       ZUGEWIESENE HARDWARE
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => setAssignHardware(true)} style={{
-                        background: "#6366f1", border: "none", borderRadius: "6px", padding: "4px 12px",
-                        fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600,
-                        fontFamily: "'DM Sans', sans-serif", transition: "background 150ms ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}
-                      >
-                        + Neue Hardware
-                      </button>
+                      {mayLoanHw && (
+                        <button onClick={() => setAssignHardware(true)} style={{
+                          background: "#6366f1", border: "none", borderRadius: "6px", padding: "4px 12px",
+                          fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600,
+                          fontFamily: "'DM Sans', sans-serif", transition: "background 150ms ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}
+                        >
+                          + Neue Hardware
+                        </button>
+                      )}
                       {empLoanHistory.length > 0 && (
                         <button onClick={() => setShowHistory((h) => !h)} style={{
                           background: "none", border: "1px solid #334155", borderRadius: "6px", padding: "3px 10px",
@@ -515,13 +531,15 @@ function EmployeesPage({ toast }) {
                               <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
                                 seit {new Date(l.loanDate).toLocaleDateString("de-DE")}
                               </span>
-                              <Btn sm variant="secondary" onClick={async () => {
-                                try {
-                                  await api.post(`/loans/hardware/${l.hardwareId}/return`);
-                                  setEmpLoans((prev) => prev.filter((x) => x.id !== l.id));
-                                  toast("Hardware zurückgegeben");
-                                } catch (err) { toast(err?.message || "Rückgabe fehlgeschlagen"); }
-                              }}>Zurückgeben</Btn>
+                              {mayLoanHw && (
+                                <Btn sm variant="secondary" onClick={async () => {
+                                  try {
+                                    await api.post(`/loans/hardware/${l.hardwareId}/return`);
+                                    setEmpLoans((prev) => prev.filter((x) => x.id !== l.id));
+                                    toast("Hardware zurückgegeben");
+                                  } catch (err) { toast(err?.message || "Rückgabe fehlgeschlagen"); }
+                                }}>Zurückgeben</Btn>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -554,16 +572,18 @@ function EmployeesPage({ toast }) {
                     <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
                       SOFTWARE & LIZENZEN
                     </div>
-                    <button onClick={() => setAssignSoftware(true)} style={{
-                      background: "#6366f1", border: "none", borderRadius: "6px", padding: "4px 12px",
-                      fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600,
-                      fontFamily: "'DM Sans', sans-serif", transition: "background 150ms ease",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}
-                    >
-                      + Neue Software
-                    </button>
+                    {maySw && (
+                      <button onClick={() => setAssignSoftware(true)} style={{
+                        background: "#6366f1", border: "none", borderRadius: "6px", padding: "4px 12px",
+                        fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600,
+                        fontFamily: "'DM Sans', sans-serif", transition: "background 150ms ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}
+                      >
+                        + Neue Software
+                      </button>
+                    )}
                   </div>
                   {empSoftware.length === 0 ? (
                     <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine Software zugewiesen</div>
@@ -590,7 +610,7 @@ function EmployeesPage({ toast }) {
                               <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
                                 seit {new Date(a.assignedDate).toLocaleDateString("de-DE")}
                               </span>
-                              {!isExpired && (
+                              {!isExpired && maySw && (
                                 <Btn sm variant="secondary" onClick={async () => {
                                   try {
                                     await api.post(`/software/${a.softwareId}/revoke/${selected}`);

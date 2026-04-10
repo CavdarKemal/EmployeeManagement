@@ -12,6 +12,8 @@ import { exportCSV } from "../utils/csvExport.js";
 import { downloadPdf } from "../utils/pdfDownload.js";
 import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { canWriteSoftware, canAssignSoftware, canImport } from "../utils/permissions.js";
 
 const CAT_EMOJI = { PRODUCTIVITY: "📊", DEV_TOOLS: "🛠️", DESIGN: "🎨", OS: "💾" };
 
@@ -85,6 +87,10 @@ function SoftwareFormModal({ software, onSave, onClose, toast }) {
 }
 
 function SoftwarePage({ toast }) {
+  const { user } = useAuth();
+  const mayWrite  = canWriteSoftware(user);
+  const mayAssign = canAssignSoftware(user);
+  const mayImport = canImport(user);
   const [software, setSoftware]   = useState([]);
   const [assignDialog, setAssignDialog] = useState(null);
   const [employees, setEmployees] = useState([]);
@@ -188,7 +194,7 @@ function SoftwarePage({ toast }) {
           })}
         </div>
         <Btn variant="secondary" onClick={() => downloadPdf("/reports/licenses", "Lizenz-Audit.pdf").catch(() => toast("PDF fehlgeschlagen"))}>PDF</Btn>
-        <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>
+        {mayImport && <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>}
         <Btn variant="secondary" onClick={() => exportCSV(software, [
           { key: "name", label: "Name" }, { key: "vendor", label: "Hersteller" },
           { key: "version", label: "Version" }, { key: "category", label: "Kategorie" },
@@ -196,7 +202,7 @@ function SoftwarePage({ toast }) {
           { key: "usedLicenses", label: "Lizenzen genutzt" }, { key: "costPerLicense", label: "Kosten/Lizenz" },
           { key: "renewalDate", label: "Erneuerung" }, { key: "notes", label: "Notizen" },
         ], "Software")}>CSV Export</Btn>
-        <Btn onClick={() => setShowForm(true)}>＋ Software</Btn>
+        {mayWrite && <Btn onClick={() => setShowForm(true)}>＋ Software</Btn>}
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
@@ -351,11 +357,13 @@ function SoftwarePage({ toast }) {
 
               {/* Actions */}
               <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                <Btn sm variant="secondary" onClick={() => setAssignDialog(sw)} disabled={isExpired || sw.usedLicenses >= sw.totalLicenses}>
-                  Zuweisen
-                </Btn>
-                <Btn sm variant="secondary" onClick={() => { setEditSw(sw); setShowForm(true); }}>Bearbeiten</Btn>
-                <Btn sm variant="danger" onClick={() => setConfirmDelete(sw)}>Löschen</Btn>
+                {mayAssign && (
+                  <Btn sm variant="secondary" onClick={() => setAssignDialog(sw)} disabled={isExpired || sw.usedLicenses >= sw.totalLicenses}>
+                    Zuweisen
+                  </Btn>
+                )}
+                {mayWrite && <Btn sm variant="secondary" onClick={() => { setEditSw(sw); setShowForm(true); }}>Bearbeiten</Btn>}
+                {mayWrite && <Btn sm variant="danger" onClick={() => setConfirmDelete(sw)}>Löschen</Btn>}
               </div>
             </Card>
           );
