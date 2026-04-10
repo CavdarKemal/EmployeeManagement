@@ -61,7 +61,7 @@ const NAV = [
   { id: "employees", label: "Mitarbeiter",         Icon: IconEmployees },
   { id: "hardware",  label: "Hardware",            Icon: IconHardware  },
   { id: "software",  label: "Software & Lizenzen", Icon: IconSoftware  },
-  { id: "admin",     label: "Administration",      Icon: IconAdmin     },
+  { id: "admin",     label: "Benutzer",            Icon: IconAdmin     },
   { id: "audit",     label: "Audit-Log",           Icon: IconAdmin     },
   { id: "notify",    label: "Benachrichtigungen", Icon: IconAdmin     },
 ];
