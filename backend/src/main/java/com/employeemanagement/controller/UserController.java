@@ -37,6 +37,21 @@ public class UserController {
         return userService.createUser(dto);
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Benutzer bearbeiten")
+    public UserDTO update(
+            @PathVariable Long id,
+            @RequestBody UpdateUserDTO dto) {
+        return userService.updateUser(id, dto);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Benutzer löschen (nur gesperrte)")
+    public void delete(@PathVariable Long id) {
+        userService.deleteUser(id);
+    }
+
     @PatchMapping("/{id}/role")
     @Operation(summary = "Rolle ändern")
     public UserDTO updateRole(

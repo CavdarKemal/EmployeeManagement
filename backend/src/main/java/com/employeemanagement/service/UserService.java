@@ -56,6 +56,40 @@ public class UserService implements UserDetailsService {
         return toDTO(saved);
     }
 
+    public UserDTO updateUser(Long userId, UpdateUserDTO dto) {
+        AppUser user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
+
+        if (dto.getDisplayName() != null && !dto.getDisplayName().isBlank())
+            user.setDisplayName(dto.getDisplayName());
+
+        if (dto.getEmail() != null && !dto.getEmail().isBlank() && !dto.getEmail().equals(user.getEmail())) {
+            if (userRepo.existsByEmail(dto.getEmail()))
+                throw new BusinessException("E-Mail bereits vergeben: " + dto.getEmail());
+            user.setEmail(dto.getEmail());
+        }
+
+        log.info("Benutzer bearbeitet: {} (id={})", user.getEmail(), userId);
+        return toDTO(userRepo.save(user));
+    }
+
+    public void deleteUser(Long userId) {
+        AppUser user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
+
+        if (user.isAccountNonLocked())
+            throw new BusinessException("Nur gesperrte Benutzer können gelöscht werden.");
+
+        if (user.getRole() == AppUser.Role.ADMIN) {
+            long adminCount = userRepo.countByRole(AppUser.Role.ADMIN);
+            if (adminCount <= 1)
+                throw new BusinessException("Letzter ADMIN kann nicht gelöscht werden.");
+        }
+
+        userRepo.delete(user);
+        log.info("Benutzer gelöscht: {} (id={})", user.getEmail(), userId);
+    }
+
     public UserDTO updateRole(Long userId, AppUser.Role newRole) {
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));

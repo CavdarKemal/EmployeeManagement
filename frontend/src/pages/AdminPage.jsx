@@ -35,12 +35,40 @@ export function AdminPage({ toast }) {
   );
 
   const handleRoleChange = async (userId, newRole) => {
+    const prevUsers = users;
     try {
       const updated = await api.request("PATCH", `/admin/users/${userId}/role?role=${newRole}`);
+      if (!updated) throw new Error("Leere Antwort vom Server");
       setUsers((u) => u.map((usr) => usr.id === userId ? updated : usr));
-      toast(`Rolle erfolgreich geändert auf ${newRole}`);
+      toast(`Rolle geändert auf ${newRole}`);
     } catch (err) {
+      console.error("Rollenänderung fehlgeschlagen:", err);
+      setUsers(prevUsers);
       toast(err?.message || "Rollenänderung fehlgeschlagen");
+    }
+  };
+
+  const handleEdit = async (userId, patch) => {
+    try {
+      const updated = await api.put(`/admin/users/${userId}`, patch);
+      setUsers((u) => u.map((usr) => usr.id === userId ? updated : usr));
+      toast("Benutzer aktualisiert");
+      setConfirm(null);
+    } catch (err) {
+      console.error("Edit fehlgeschlagen:", err);
+      toast(err?.message || "Speichern fehlgeschlagen");
+    }
+  };
+
+  const handleDelete = async (userId) => {
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      setUsers((u) => u.filter((usr) => usr.id !== userId));
+      toast("Benutzer gelöscht");
+      setConfirm(null);
+    } catch (err) {
+      console.error("Delete fehlgeschlagen:", err);
+      toast(err?.message || "Löschen fehlgeschlagen");
     }
   };
 
@@ -353,7 +381,19 @@ export function AdminPage({ toast }) {
 
                   {/* Actions */}
                   <td style={{ padding: "14px 16px" }}>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button
+                        onClick={() => setConfirm({ type: "edit", user })}
+                        style={{
+                          padding: "5px 12px", borderRadius: "6px", border: "1px solid #334155",
+                          background: "transparent", color: "#a5b4fc", cursor: "pointer",
+                          fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.1)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        Bearbeiten
+                      </button>
                       <button
                         onClick={() => setConfirm({ type: "lock", user })}
                         disabled={user.id === 1}
@@ -396,6 +436,20 @@ export function AdminPage({ toast }) {
                       >
                         PW Reset
                       </button>
+                      {!user.accountNonLocked && user.id !== 1 && (
+                        <button
+                          onClick={() => setConfirm({ type: "delete", user })}
+                          style={{
+                            padding: "5px 12px", borderRadius: "6px", border: "1px solid #334155",
+                            background: "transparent", color: "#ef4444", cursor: "pointer",
+                            fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          Löschen
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -417,6 +471,8 @@ export function AdminPage({ toast }) {
           onConfirm={(data) => {
             if (confirmAction.type === "lock") handleToggleLock(confirmAction.user.id);
             if (confirmAction.type === "password") handlePasswordReset(confirmAction.user.id, data);
+            if (confirmAction.type === "delete") handleDelete(confirmAction.user.id);
+            if (confirmAction.type === "edit") handleEdit(confirmAction.user.id, data);
           }}
           onClose={() => setConfirm(null)}
         />
@@ -667,10 +723,16 @@ function CreateUserModal({ onSave, onClose }) {
 }
 
 function ConfirmDialog({ action, onConfirm, onClose }) {
-  const isLock  = action.type === "lock";
-  const isPw    = action.type === "password";
+  const isLock   = action.type === "lock";
+  const isPw     = action.type === "password";
+  const isDelete = action.type === "delete";
+  const isEdit   = action.type === "edit";
   const willLock = action.user.accountNonLocked;
   const [newPw, setNewPw] = useState("");
+  const [editForm, setEditForm] = useState({
+    email: action.user.email,
+    displayName: action.user.displayName,
+  });
 
   const dialogStyle = {
     position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
@@ -685,30 +747,49 @@ function ConfirmDialog({ action, onConfirm, onClose }) {
     fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
   };
 
+  const title = isEdit ? "Benutzer bearbeiten"
+              : isDelete ? "Benutzer löschen?"
+              : isPw ? "Passwort zurücksetzen"
+              : willLock ? "Account sperren?" : "Account entsperren?";
+
+  const description = isEdit ? `Name und E-Mail für ${action.user.displayName} ändern.`
+                    : isDelete ? `${action.user.displayName} wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.`
+                    : isPw ? `Neues Passwort für ${action.user.displayName} setzen.`
+                    : willLock ? `${action.user.displayName} kann sich nach dem Sperren nicht mehr anmelden.`
+                    : `${action.user.displayName} erhält wieder Zugang zum System.`;
+
+  const inputCss = {
+    width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+    fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
+    fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", marginBottom: 12,
+  };
+
+  const editValid = editForm.displayName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email);
+
   return (
-    <div style={dialogStyle}>
-      <div style={boxStyle}>
-        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600, color: "#f1f5f9", fontFamily: "'Sora', sans-serif" }}>
-          {isPw ? "Passwort zurücksetzen" : willLock ? "Account sperren?" : "Account entsperren?"}
+    <div style={dialogStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...boxStyle, textAlign: isEdit ? "left" : "center" }}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600, color: "#f1f5f9", fontFamily: "'Sora', sans-serif", textAlign: "center" }}>
+          {title}
         </h3>
-        <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
-          {isPw
-            ? `Neues Passwort für ${action.user.displayName} setzen.`
-            : willLock
-              ? `${action.user.displayName} kann sich nach dem Sperren nicht mehr anmelden.`
-              : `${action.user.displayName} erhält wieder Zugang zum System.`}
+        <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6, textAlign: "center" }}>
+          {description}
         </p>
+        {isEdit && (
+          <>
+            <label style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>Anzeigename</label>
+            <input value={editForm.displayName} onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))} style={inputCss} />
+            <label style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>E-Mail</label>
+            <input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} style={{ ...inputCss, marginBottom: 20 }} />
+          </>
+        )}
         {isPw && (
           <input
             type="password"
             value={newPw}
             onChange={(e) => setNewPw(e.target.value)}
             placeholder="Neues Passwort (mind. 8 Zeichen)"
-            style={{
-              width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
-              fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
-              fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", marginBottom: 20,
-            }}
+            style={{ ...inputCss, marginBottom: 20 }}
           />
         )}
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
@@ -716,15 +797,19 @@ function ConfirmDialog({ action, onConfirm, onClose }) {
             Abbrechen
           </button>
           <button
-            onClick={() => isPw ? onConfirm(newPw) : onConfirm()}
-            disabled={isPw && newPw.length < 8}
+            onClick={() => {
+              if (isEdit)   return onConfirm(editForm);
+              if (isPw)     return onConfirm(newPw);
+              return onConfirm();
+            }}
+            disabled={(isPw && newPw.length < 8) || (isEdit && !editValid)}
             style={{
               ...btnBase, border: "none", color: "#fff", fontWeight: 600,
-              background: isPw ? "#6366f1" : willLock ? "#ef4444" : "#10b981",
-              opacity: isPw && newPw.length < 8 ? 0.5 : 1,
+              background: isEdit ? "#6366f1" : isDelete ? "#ef4444" : isPw ? "#6366f1" : willLock ? "#ef4444" : "#10b981",
+              opacity: (isPw && newPw.length < 8) || (isEdit && !editValid) ? 0.5 : 1,
             }}
           >
-            {isPw ? "Zurücksetzen" : willLock ? "Sperren" : "Entsperren"}
+            {isEdit ? "Speichern" : isDelete ? "Löschen" : isPw ? "Zurücksetzen" : willLock ? "Sperren" : "Entsperren"}
           </button>
         </div>
       </div>

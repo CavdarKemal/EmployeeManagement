@@ -9,13 +9,12 @@ export const AuthCtx = {};
 const api = {
   async request(method, path, body) {
     const token = localStorage.getItem("jwt");
+    const headers = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      headers,
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     if (res.status === 401) {
       AuthCtx.logout?.();

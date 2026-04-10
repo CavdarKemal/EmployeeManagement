@@ -79,16 +79,6 @@ function NotificationConfigPage({ toast }) {
           ))}
         </div>
 
-        <div style={{ marginTop: 16, padding: "12px 14px", background: "#0f172a", borderRadius: "8px", border: "1px solid #334155" }}>
-          <div style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>
-            Konfiguration ändern
-          </div>
-          <div style={{ fontSize: 12, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
-            Die E-Mail-Einstellungen werden über Umgebungsvariablen in der <code style={{ color: "#a5b4fc" }}>.env</code>-Datei auf dem Server konfiguriert:
-            <br /><code style={{ color: "#a5b4fc" }}>NOTIFICATION_ENABLED=true</code>, <code style={{ color: "#a5b4fc" }}>NOTIFICATION_EMAIL=...</code>,
-            <code style={{ color: "#a5b4fc" }}>MAIL_HOST=...</code>, <code style={{ color: "#a5b4fc" }}>MAIL_USERNAME=...</code>, <code style={{ color: "#a5b4fc" }}>MAIL_PASSWORD=...</code>
-          </div>
-        </div>
       </Card>
 
       {/* Test Mail */}

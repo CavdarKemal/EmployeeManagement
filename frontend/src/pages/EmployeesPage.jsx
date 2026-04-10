@@ -150,6 +150,8 @@ function EmployeesPage({ toast }) {
   const [empLoanHistory, setEmpLoanHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [empSoftware, setEmpSoftware] = useState([]);
+  const [assignHardware, setAssignHardware] = useState(false);
+  const [assignSoftware, setAssignSoftware] = useState(false);
 
   useEffect(() => {
     if (!selected) { setEmpLoans([]); setEmpLoanHistory([]); setEmpSoftware([]); setShowHistory(false); return; }
@@ -475,15 +477,27 @@ function EmployeesPage({ toast }) {
                     <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
                       ZUGEWIESENE HARDWARE
                     </div>
-                    {empLoanHistory.length > 0 && (
-                      <button onClick={() => setShowHistory((h) => !h)} style={{
-                        background: "none", border: "1px solid #334155", borderRadius: "6px", padding: "3px 10px",
-                        fontSize: 11, color: showHistory ? "#a5b4fc" : "#64748b", cursor: "pointer",
-                        fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
-                      }}>
-                        {showHistory ? "Aktive anzeigen" : `Historie (${empLoanHistory.filter((l) => l.returnedAt).length})`}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => setAssignHardware(true)} style={{
+                        background: "#6366f1", border: "none", borderRadius: "6px", padding: "4px 12px",
+                        fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600,
+                        fontFamily: "'DM Sans', sans-serif", transition: "background 150ms ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}
+                      >
+                        + Neue Hardware
                       </button>
-                    )}
+                      {empLoanHistory.length > 0 && (
+                        <button onClick={() => setShowHistory((h) => !h)} style={{
+                          background: "none", border: "1px solid #334155", borderRadius: "6px", padding: "3px 10px",
+                          fontSize: 11, color: showHistory ? "#a5b4fc" : "#64748b", cursor: "pointer",
+                          fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                        }}>
+                          {showHistory ? "Aktive anzeigen" : `Historie (${empLoanHistory.filter((l) => l.returnedAt).length})`}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {!showHistory ? (
@@ -536,8 +550,20 @@ function EmployeesPage({ toast }) {
 
                 {/* Software section */}
                 <div style={{ gridColumn: "1 / -1", marginTop: 8 }}>
-                  <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>
-                    SOFTWARE & LIZENZEN
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
+                      SOFTWARE & LIZENZEN
+                    </div>
+                    <button onClick={() => setAssignSoftware(true)} style={{
+                      background: "#6366f1", border: "none", borderRadius: "6px", padding: "4px 12px",
+                      fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600,
+                      fontFamily: "'DM Sans', sans-serif", transition: "background 150ms ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}
+                    >
+                      + Neue Software
+                    </button>
                   </div>
                   {empSoftware.length === 0 ? (
                     <div style={{ fontSize: 13, color: "#334155", fontFamily: "'DM Sans', sans-serif" }}>Keine Software zugewiesen</div>
@@ -616,7 +642,193 @@ function EmployeesPage({ toast }) {
           toast={toast}
         />
       )}
+
+      {assignHardware && emp && (
+        <AssignHardwareModal
+          employee={emp}
+          onClose={() => setAssignHardware(false)}
+          onAssigned={() => {
+            api.get(`/loans/employees/${selected}/active`).then(setEmpLoans).catch(() => {});
+            setAssignHardware(false);
+            toast("Hardware zugewiesen");
+          }}
+          toast={toast}
+        />
+      )}
+
+      {assignSoftware && emp && (
+        <AssignSoftwareModal
+          employee={emp}
+          onClose={() => setAssignSoftware(false)}
+          onAssigned={() => {
+            api.get(`/software/employees/${selected}/active`).then(setEmpSoftware).catch(() => {});
+            setAssignSoftware(false);
+            toast("Software zugewiesen");
+          }}
+          toast={toast}
+        />
+      )}
     </div>
+  );
+}
+
+function AssignHardwareModal({ employee, onClose, onAssigned, toast }) {
+  const [hardware, setHardware] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+  const [busyId, setBusyId]     = useState(null);
+
+  useEffect(() => {
+    api.get("/hardware?size=500&status=AVAILABLE")
+      .then((d) => setHardware(d?.content || []))
+      .catch(() => toast?.("Hardware konnte nicht geladen werden"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = hardware.filter((h) =>
+    `${h.name} ${h.assetTag} ${h.manufacturer || ""} ${h.model || ""}`.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const assign = async (hw) => {
+    setBusyId(hw.id);
+    try {
+      await api.post(`/loans/hardware/${hw.id}/loan`, { employeeId: employee.id, returnDate: null, notes: null });
+      onAssigned();
+    } catch (err) {
+      toast(err?.message || "Ausleihe fehlgeschlagen");
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <Modal title={`Hardware zuweisen – ${employee.firstName} ${employee.lastName}`} onClose={onClose} width={560}>
+      <input
+        autoFocus
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Hardware suchen (Name, Asset-Tag, Hersteller) …"
+        style={{
+          width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+          fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
+          fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", marginBottom: 14,
+        }}
+      />
+      <div style={{ maxHeight: 360, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        {loading ? (
+          <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>Lade …</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>
+            Keine verfügbare Hardware gefunden
+          </div>
+        ) : (
+          filtered.map((h) => (
+            <button
+              key={h.id}
+              onClick={() => assign(h)}
+              disabled={busyId !== null}
+              style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+                background: busyId === h.id ? "rgba(99,102,241,0.1)" : "#1e293b",
+                cursor: busyId !== null ? "wait" : "pointer", textAlign: "left",
+                fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                opacity: busyId !== null && busyId !== h.id ? 0.4 : 1,
+              }}
+              onMouseEnter={(e) => { if (busyId === null) e.currentTarget.style.borderColor = "#6366f1"; }}
+              onMouseLeave={(e) => { if (busyId === null) e.currentTarget.style.borderColor = "#334155"; }}
+            >
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9" }}>{h.name}</div>
+                <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
+                  {h.assetTag}{h.manufacturer ? ` · ${h.manufacturer}` : ""}{h.model ? ` ${h.model}` : ""}
+                </div>
+              </div>
+              <span style={{ fontSize: 11, color: "#a5b4fc" }}>Zuweisen →</span>
+            </button>
+          ))
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function AssignSoftwareModal({ employee, onClose, onAssigned, toast }) {
+  const [software, setSoftware] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+  const [busyId, setBusyId]     = useState(null);
+
+  useEffect(() => {
+    api.get("/software?size=500")
+      .then((d) => setSoftware((d?.content || []).filter((s) => !s.renewalDate || new Date(s.renewalDate) >= new Date())))
+      .catch(() => toast?.("Software konnte nicht geladen werden"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = software.filter((s) =>
+    `${s.name} ${s.vendor || ""} ${s.licenseKey || ""}`.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const assign = async (sw) => {
+    setBusyId(sw.id);
+    try {
+      await api.post(`/software/${sw.id}/assign/${employee.id}`);
+      onAssigned();
+    } catch (err) {
+      toast(err?.message || "Zuweisung fehlgeschlagen");
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <Modal title={`Software zuweisen – ${employee.firstName} ${employee.lastName}`} onClose={onClose} width={560}>
+      <input
+        autoFocus
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Software suchen (Name, Hersteller) …"
+        style={{
+          width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+          fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
+          fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", marginBottom: 14,
+        }}
+      />
+      <div style={{ maxHeight: 360, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        {loading ? (
+          <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>Lade …</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>
+            Keine verfügbare Software gefunden
+          </div>
+        ) : (
+          filtered.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => assign(s)}
+              disabled={busyId !== null}
+              style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+                background: busyId === s.id ? "rgba(99,102,241,0.1)" : "#1e293b",
+                cursor: busyId !== null ? "wait" : "pointer", textAlign: "left",
+                fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                opacity: busyId !== null && busyId !== s.id ? 0.4 : 1,
+              }}
+              onMouseEnter={(e) => { if (busyId === null) e.currentTarget.style.borderColor = "#6366f1"; }}
+              onMouseLeave={(e) => { if (busyId === null) e.currentTarget.style.borderColor = "#334155"; }}
+            >
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9" }}>{s.name}</div>
+                <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
+                  {s.vendor || "–"}{s.renewalDate ? ` · Erneuerung ${new Date(s.renewalDate).toLocaleDateString("de-DE")}` : ""}
+                </div>
+              </div>
+              <span style={{ fontSize: 11, color: "#a5b4fc" }}>Zuweisen →</span>
+            </button>
+          ))
+        )}
+      </div>
+    </Modal>
   );
 }
 

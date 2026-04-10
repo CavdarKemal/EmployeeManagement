@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 public class UpdateUserDTO {
 
+    private String email;
     private String displayName;
     private AppUser.Role role;
     private Boolean enabled;
