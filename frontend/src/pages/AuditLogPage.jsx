@@ -18,7 +18,7 @@ function AuditLogPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [search, setSearch]   = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
-  const pageSize = 30;
+  const pageSize = 20;
 
   useEffect(() => {
     setLoading(true);
@@ -65,6 +65,7 @@ function AuditLogPage() {
 
       {loading ? <Spinner text="Audit-Log laden …" /> : (
         <>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "12px", overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={{ background: "#0f172a" }}>
