@@ -741,7 +741,7 @@ function AssignHardwareModal({ employee, onClose, onAssigned, toast }) {
           <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>Lade …</div>
         ) : filtered.length === 0 ? (
           <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>
-            {hardware.length === 0 ? "Noch keine Hardware erfasst" : onlyAvailable && availableCount === 0 ? "Keine verfügbare Hardware – alle Geräte sind ausgeliehen. Haken „Nur verfügbare" entfernen, um die gesamte Liste zu sehen." : "Keine Treffer"}
+            {hardware.length === 0 ? "Noch keine Hardware erfasst" : onlyAvailable && availableCount === 0 ? "Alle Geräte sind ausgeliehen. Haken 'Nur verfügbare' entfernen, um die gesamte Liste zu sehen." : "Keine Treffer"}
           </div>
         ) : (
           filtered.map((h) => {

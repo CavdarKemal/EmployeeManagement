@@ -108,7 +108,6 @@ function NavItem({ item, active, onClick, collapsed }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        width: "100%",
         padding: active ? "6px 12px 6px 9px" : "6px 12px",
         borderRadius: "8px",
         border: "none",
