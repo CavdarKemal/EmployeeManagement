@@ -3,6 +3,7 @@ package com.employeemanagement.service;
 import com.employeemanagement.model.Hardware;
 import com.employeemanagement.model.Software;
 import com.employeemanagement.repository.HardwareRepository;
+import com.employeemanagement.repository.LoanRepository;
 import com.employeemanagement.repository.SoftwareRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,17 +27,18 @@ class NotificationServiceTest {
     @Mock JavaMailSender mailSender;
     @Mock HardwareRepository hardwareRepo;
     @Mock SoftwareRepository softwareRepo;
+    @Mock LoanRepository loanRepo;
 
     private NotificationService service;
 
     @BeforeEach
     void setUp() throws Exception {
-        service = new NotificationService(mailSender, hardwareRepo, softwareRepo);
+        service = new NotificationService(mailSender, hardwareRepo, softwareRepo, loanRepo);
         // Set @Value fields via reflection
-        var cls = NotificationService.class;
         setField("recipient", "test@firma.de");
         setField("warrantyDays", 30);
         setField("renewalDays", 30);
+        setField("returnDays", 7);
         setField("fromAddress", "noreply@test.de");
     }
 
