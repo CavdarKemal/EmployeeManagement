@@ -43,12 +43,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         log.error("Unbehandelte Exception: {}", ex.getMessage(), ex);
-        Throwable root = ex;
-        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-        String message = "Interner Serverfehler: " + root.getClass().getSimpleName()
-                + (root.getMessage() != null ? " – " + root.getMessage() : "");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse(500, message, LocalDateTime.now()));
+                .body(new ErrorResponse(500, "Interner Serverfehler", LocalDateTime.now()));
     }
 
     public record ErrorResponse(int status, String message, LocalDateTime timestamp) {}
