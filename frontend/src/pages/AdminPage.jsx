@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api/index.js";
 import Spinner from "../components/Spinner.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const ROLES = ["ADMIN", "HR", "IT", "VIEWER"];
 
@@ -16,6 +17,7 @@ function getRoleDescription(role) {
 }
 
 export function AdminPage({ toast }) {
+  const { user: currentUser } = useAuth();
   const [users, setUsers]         = useState([]);
   const [search, setSearch]       = useState("");
   const [showForm, setShowForm]   = useState(false);
@@ -263,6 +265,9 @@ export function AdminPage({ toast }) {
           <tbody>
             {filtered.map((user, i) => {
               const rc = ROLE_CONFIG[user.role];
+              const isSelf = user.email === currentUser?.email;
+              const roleLocked = user.id === 1 || isSelf;
+              const lockDisabled = user.id === 1 || isSelf;
               return (
                 <tr
                   key={user.id}
@@ -312,7 +317,8 @@ export function AdminPage({ toast }) {
                       <select
                         value={user.role}
                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        disabled={user.id === 1}
+                        disabled={roleLocked}
+                        title={isSelf ? "Eigene Rolle kann nicht geändert werden" : user.id === 1 ? "System-Admin" : ""}
                         style={{
                           padding: "5px 28px 5px 10px",
                           borderRadius: "6px",
@@ -322,8 +328,8 @@ export function AdminPage({ toast }) {
                           fontSize: 12,
                           fontWeight: 600,
                           fontFamily: "'DM Sans', sans-serif",
-                          cursor: user.id === 1 ? "not-allowed" : "pointer",
-                          opacity: user.id === 1 ? 0.5 : 1,
+                          cursor: roleLocked ? "not-allowed" : "pointer",
+                          opacity: roleLocked ? 0.5 : 1,
                           appearance: "none",
                           WebkitAppearance: "none",
                           outline: "none",
@@ -398,21 +404,22 @@ export function AdminPage({ toast }) {
                       </button>
                       <button
                         onClick={() => setConfirm({ type: "lock", user })}
-                        disabled={user.id === 1}
+                        disabled={lockDisabled}
+                        title={isSelf ? "Eigenen Account kann man nicht sperren" : ""}
                         style={{
                           padding: "5px 12px",
                           borderRadius: "6px",
                           border: "1px solid #334155",
                           background: "transparent",
                           color: user.accountNonLocked ? "#f59e0b" : "#10b981",
-                          cursor: user.id === 1 ? "not-allowed" : "pointer",
+                          cursor: lockDisabled ? "not-allowed" : "pointer",
                           fontSize: 12,
                           fontFamily: "'DM Sans', sans-serif",
-                          opacity: user.id === 1 ? 0.3 : 1,
+                          opacity: lockDisabled ? 0.3 : 1,
                           transition: "all 150ms ease",
                         }}
                         onMouseEnter={(e) => {
-                          if (user.id !== 1) {
+                          if (!lockDisabled) {
                             e.currentTarget.style.background = user.accountNonLocked ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)";
                           }
                         }}
@@ -438,7 +445,7 @@ export function AdminPage({ toast }) {
                       >
                         PW Reset
                       </button>
-                      {!user.accountNonLocked && user.id !== 1 && (
+                      {!user.accountNonLocked && user.id !== 1 && !isSelf && (
                         <button
                           onClick={() => setConfirm({ type: "delete", user })}
                           style={{

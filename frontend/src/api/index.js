@@ -22,6 +22,10 @@ const api = {
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      if (!err.message) {
+        if (res.status === 403) err.message = "Keine Berechtigung für diese Aktion. Bitte neu einloggen, falls sich deine Rolle geändert hat.";
+        else err.message = `Fehler ${res.status}`;
+      }
       throw err;
     }
     if (res.status === 204) return null;

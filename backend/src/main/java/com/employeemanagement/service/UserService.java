@@ -77,6 +77,10 @@ public class UserService implements UserDetailsService {
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
 
+        String currentUser = currentUsername();
+        if (currentUser != null && user.getEmail().equals(currentUser))
+            throw new BusinessException("Eigenen Account kann man nicht löschen.");
+
         if (user.isAccountNonLocked())
             throw new BusinessException("Nur gesperrte Benutzer können gelöscht werden.");
 
@@ -93,6 +97,11 @@ public class UserService implements UserDetailsService {
     public UserDTO updateRole(Long userId, AppUser.Role newRole) {
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
+
+        // Selbst-Degradierung verhindern — sonst sperrt man sich selbst aus
+        String currentUser = currentUsername();
+        if (currentUser != null && user.getEmail().equals(currentUser) && user.getRole() != newRole)
+            throw new BusinessException("Eigene Rolle kann nicht geändert werden.");
 
         // Letzten Admin schützen
         if (user.getRole() == AppUser.Role.ADMIN && newRole != AppUser.Role.ADMIN) {
@@ -112,9 +121,8 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
 
         // Eigenen Account nicht sperren
-        String currentUser = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
-        if (user.getEmail().equals(currentUser))
+        String currentUser = currentUsername();
+        if (currentUser != null && user.getEmail().equals(currentUser))
             throw new BusinessException("Eigenen Account kann man nicht sperren.");
 
         user.setAccountNonLocked(!user.isAccountNonLocked());
@@ -136,6 +144,12 @@ public class UserService implements UserDetailsService {
             u.setLastLoginAt(LocalDateTime.now());
             userRepo.save(u);
         });
+    }
+
+    private String currentUsername() {
+        var ctx = SecurityContextHolder.getContext();
+        if (ctx == null || ctx.getAuthentication() == null) return null;
+        return ctx.getAuthentication().getName();
     }
 
     private UserDTO toDTO(AppUser u) {
