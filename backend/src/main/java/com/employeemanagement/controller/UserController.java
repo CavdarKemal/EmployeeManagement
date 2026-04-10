@@ -52,7 +52,7 @@ public class UserController {
         userService.deleteUser(id);
     }
 
-    @PatchMapping("/{id}/role")
+    @PutMapping("/{id}/role")
     @Operation(summary = "Rolle ändern")
     public UserDTO updateRole(
             @PathVariable Long id,
@@ -60,14 +60,14 @@ public class UserController {
         return userService.updateRole(id, role);
     }
 
-    @PatchMapping("/{id}/toggle-lock")
+    @PutMapping("/{id}/toggle-lock")
     @Operation(summary = "Account sperren / entsperren")
     public ResponseEntity<Void> toggleLock(@PathVariable Long id) {
         userService.toggleLock(id);
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}/reset-password")
+    @PutMapping("/{id}/reset-password")
     @Operation(summary = "Passwort zurücksetzen")
     public ResponseEntity<Void> resetPassword(
             @PathVariable Long id,

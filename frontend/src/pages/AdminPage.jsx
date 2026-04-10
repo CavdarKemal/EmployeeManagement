@@ -37,7 +37,7 @@ export function AdminPage({ toast }) {
   const handleRoleChange = async (userId, newRole) => {
     const prevUsers = users;
     try {
-      const updated = await api.request("PATCH", `/admin/users/${userId}/role?role=${newRole}`);
+      const updated = await api.request("PUT", `/admin/users/${userId}/role?role=${newRole}`);
       if (!updated) throw new Error("Leere Antwort vom Server");
       setUsers((u) => u.map((usr) => usr.id === userId ? updated : usr));
       toast(`Rolle geändert auf ${newRole}`);
@@ -74,7 +74,7 @@ export function AdminPage({ toast }) {
 
   const handleToggleLock = async (userId) => {
     try {
-      await api.request("PATCH", `/admin/users/${userId}/toggle-lock`);
+      await api.request("PUT", `/admin/users/${userId}/toggle-lock`);
       setUsers((u) => u.map((usr) =>
         usr.id === userId ? { ...usr, accountNonLocked: !usr.accountNonLocked } : usr
       ));
@@ -82,16 +82,18 @@ export function AdminPage({ toast }) {
       toast(user.accountNonLocked ? "Account gesperrt" : "Account entsperrt");
       setConfirm(null);
     } catch (err) {
+      console.error("Toggle-Lock fehlgeschlagen:", err);
       toast(err?.message || "Aktion fehlgeschlagen");
     }
   };
 
   const handlePasswordReset = async (userId, newPassword) => {
     try {
-      await api.request("PATCH", `/admin/users/${userId}/reset-password?newPassword=${encodeURIComponent(newPassword)}`);
+      await api.request("PUT", `/admin/users/${userId}/reset-password?newPassword=${encodeURIComponent(newPassword)}`);
       toast("Passwort zurückgesetzt");
       setConfirm(null);
     } catch (err) {
+      console.error("Passwort-Reset fehlgeschlagen:", err);
       toast(err?.message || "Passwort-Reset fehlgeschlagen");
     }
   };
