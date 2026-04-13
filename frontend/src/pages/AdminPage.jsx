@@ -33,9 +33,11 @@ export function AdminPage({ toast }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = users.filter((u) =>
-    `${u.email} ${u.displayName}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = users
+    .filter((u) =>
+      `${u.email} ${u.displayName}`.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, 'de'));
 
   const handleRoleChange = async (userId, newRole) => {
     const prevUsers = users;
@@ -104,9 +106,17 @@ export function AdminPage({ toast }) {
   const handleCreate = async (newUser) => {
     try {
       const created = await api.post("/admin/users", newUser);
-      setUsers((u) => [...u, created]);
-      toast("Benutzer angelegt");
-      setShowForm(false);
+      if (created && created.id) {
+        setUsers((u) => [...u, created]);
+        toast("Benutzer angelegt");
+        setShowForm(false);
+      } else {
+        // Falls API keinen vollständigen Benutzer zurückgibt, Liste neu laden
+        const data = await api.get("/admin/users?size=200");
+        if (data?.content) setUsers(data.content);
+        toast("Benutzer angelegt");
+        setShowForm(false);
+      }
     } catch (err) {
       toast(err?.message || "Anlegen fehlgeschlagen");
     }

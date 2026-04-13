@@ -5,6 +5,8 @@ import com.employeemanagement.dto.UserDTO;
 import com.employeemanagement.exception.BusinessException;
 import com.employeemanagement.exception.ResourceNotFoundException;
 import com.employeemanagement.model.AppUser;
+import com.employeemanagement.model.Employee;
+import com.employeemanagement.repository.EmployeeRepository;
 import com.employeemanagement.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.*;
 class UserServiceTest {
 
     @Mock UserRepository userRepo;
+    @Mock EmployeeRepository employeeRepo;
     @Mock PasswordEncoder passwordEncoder;
     @InjectMocks UserService service;
 
@@ -50,16 +53,23 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("createUser – neuer Benutzer wird angelegt")
+    @DisplayName("createUser – neuer Benutzer wird angelegt mit verknüpftem Mitarbeiter")
     void createUser_success() {
         CreateUserDTO dto = new CreateUserDTO();
         dto.setEmail("new@firma.de");
-        dto.setDisplayName("Neu");
+        dto.setDisplayName("Max Mustermann");
         dto.setInitialPassword("pass123");
         dto.setRole(AppUser.Role.VIEWER);
 
         when(userRepo.existsByEmail("new@firma.de")).thenReturn(false);
+        when(employeeRepo.existsByEmail("new@firma.de")).thenReturn(false);
+        when(employeeRepo.findMaxEmployeeNumber()).thenReturn(5);
         when(passwordEncoder.encode("pass123")).thenReturn("$2a$hash");
+        when(employeeRepo.save(any(Employee.class))).thenAnswer(inv -> {
+            Employee e = inv.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
         when(userRepo.save(any(AppUser.class))).thenAnswer(inv -> {
             AppUser u = inv.getArgument(0);
             u.setId(1L);
@@ -71,11 +81,12 @@ class UserServiceTest {
         assertThat(result.getEmail()).isEqualTo("new@firma.de");
         assertThat(result.getRole()).isEqualTo(AppUser.Role.VIEWER);
         verify(userRepo).save(any(AppUser.class));
+        verify(employeeRepo).save(any(Employee.class));
     }
 
     @Test
-    @DisplayName("createUser – doppelte E-Mail wirft BusinessException")
-    void createUser_duplicateEmail() {
+    @DisplayName("createUser – doppelte E-Mail in User wirft BusinessException")
+    void createUser_duplicateEmailInUser() {
         CreateUserDTO dto = new CreateUserDTO();
         dto.setEmail("dup@firma.de");
         dto.setDisplayName("Dup");
@@ -86,6 +97,24 @@ class UserServiceTest {
 
         assertThrows(BusinessException.class, () -> service.createUser(dto));
         verify(userRepo, never()).save(any());
+        verify(employeeRepo, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createUser – doppelte E-Mail in Employee wirft BusinessException")
+    void createUser_duplicateEmailInEmployee() {
+        CreateUserDTO dto = new CreateUserDTO();
+        dto.setEmail("dup@firma.de");
+        dto.setDisplayName("Dup");
+        dto.setInitialPassword("pass");
+        dto.setRole(AppUser.Role.VIEWER);
+
+        when(userRepo.existsByEmail("dup@firma.de")).thenReturn(false);
+        when(employeeRepo.existsByEmail("dup@firma.de")).thenReturn(true);
+
+        assertThrows(BusinessException.class, () -> service.createUser(dto));
+        verify(userRepo, never()).save(any());
+        verify(employeeRepo, never()).save(any());
     }
 
     @Test
