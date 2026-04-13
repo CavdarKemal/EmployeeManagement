@@ -6,6 +6,8 @@ import com.employeemanagement.dto.UserDTO;
 import com.employeemanagement.exception.BusinessException;
 import com.employeemanagement.exception.ResourceNotFoundException;
 import com.employeemanagement.model.AppUser;
+import com.employeemanagement.model.Employee;
+import com.employeemanagement.repository.EmployeeRepository;
 import com.employeemanagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -26,6 +29,7 @@ import java.time.LocalDateTime;
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepo;
+    private final EmployeeRepository employeeRepo;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -42,18 +46,67 @@ public class UserService implements UserDetailsService {
     public UserDTO createUser(CreateUserDTO dto) {
         if (userRepo.existsByEmail(dto.getEmail()))
             throw new BusinessException("E-Mail bereits vergeben: " + dto.getEmail());
+        if (employeeRepo.existsByEmail(dto.getEmail()))
+            throw new BusinessException("E-Mail bereits als Mitarbeiter vorhanden: " + dto.getEmail());
 
+        // Automatisch EMP-Nummer generieren
+        String empNumber = generateNextEmployeeNumber();
+
+        // Namen aus displayName extrahieren (Vorname Nachname)
+        String[] nameParts = dto.getDisplayName().trim().split("\\s+", 2);
+        String firstName = nameParts[0];
+        String lastName = nameParts.length > 1 ? nameParts[1] : nameParts[0];
+
+        // Mitarbeiter anlegen
+        Employee employee = Employee.builder()
+                .employeeNumber(empNumber)
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(dto.getEmail())
+                .hireDate(LocalDate.now())
+                .department(mapRoleToDepartment(dto.getRole()))
+                .position(mapRoleToPosition(dto.getRole()))
+                .build();
+        Employee savedEmployee = employeeRepo.save(employee);
+
+        // Benutzer anlegen und mit Mitarbeiter verknüpfen
         AppUser user = AppUser.builder()
                 .email(dto.getEmail())
                 .displayName(dto.getDisplayName())
                 .passwordHash(passwordEncoder.encode(dto.getInitialPassword()))
                 .role(dto.getRole())
                 .passwordChangedAt(LocalDateTime.now())
+                .linkedEmployee(savedEmployee)
                 .build();
 
         AppUser saved = userRepo.save(user);
-        log.info("Benutzer angelegt: {} mit Rolle {}", saved.getEmail(), saved.getRole());
+        log.info("Benutzer angelegt: {} mit Rolle {} und Mitarbeiter {} ({})", 
+                saved.getEmail(), saved.getRole(), empNumber, savedEmployee.getId());
         return toDTO(saved);
+    }
+
+    private String generateNextEmployeeNumber() {
+        Integer maxNum = employeeRepo.findMaxEmployeeNumber();
+        int nextNum = (maxNum != null ? maxNum : 0) + 1;
+        return String.format("EMP-%03d", nextNum);
+    }
+
+    private String mapRoleToDepartment(AppUser.Role role) {
+        return switch (role) {
+            case ADMIN -> "Administration";
+            case HR -> "Personal";
+            case IT -> "IT";
+            case VIEWER -> "Allgemein";
+        };
+    }
+
+    private String mapRoleToPosition(AppUser.Role role) {
+        return switch (role) {
+            case ADMIN -> "Administrator";
+            case HR -> "HR-Mitarbeiter";
+            case IT -> "IT-Mitarbeiter";
+            case VIEWER -> "Mitarbeiter";
+        };
     }
 
     public UserDTO updateUser(Long userId, UpdateUserDTO dto) {

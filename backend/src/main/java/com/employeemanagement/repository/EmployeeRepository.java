@@ -30,4 +30,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Page<Employee> searchActive(@Param("search") String search, Pageable pageable);
 
     Page<Employee> findAllByDepartment(String department, Pageable pageable);
+
+    @Query("SELECT MAX(CAST(SUBSTRING(e.employeeNumber, 5) AS int)) FROM Employee e WHERE e.employeeNumber LIKE 'EMP-%'")
+    Integer findMaxEmployeeNumber();
 }
