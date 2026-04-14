@@ -8,6 +8,247 @@
 
 ---
 
+# ⚡ Nach einer Änderung deployen — Schnelleinstieg
+
+Diese Sektion beschreibt den typischen Ablauf **nach** einer Code-Änderung.
+Der Rest des Dokuments (unten) ist die Erst-Einrichtung des Servers und
+wird nur einmal gebraucht.
+
+Es gibt zwei Ziele:
+
+| Ziel | Wann? | URL |
+|------|-------|-----|
+| **Lokaler Rechner** (Entwicklungsumgebung) | Zum Testen der Änderung bevor sie live geht | http://localhost:3000 |
+| **Remote VPS** (Produktion) | Wenn die Änderung getestet ist und live gehen soll | https://em.cavdar.de |
+
+**Faustregel:** Immer erst lokal testen, dann commit + push, dann remote deployen.
+
+---
+
+## A) Lokal deployen (Entwicklungs-PC)
+
+Ausgangslage: Du hast gerade Code geändert auf deinem PC unter
+`E:\Projekte\ClaudeCode\EmployeeManagement`.
+
+### Schritt 1 — Backend bauen (nur wenn Java-Code oder Flyway-Migration geändert)
+
+```bash
+cd E:/Projekte/ClaudeCode/EmployeeManagement/backend
+../ci.cmd 25
+```
+
+Erwartet am Ende: `BUILD SUCCESS`. Das erzeugt ein frisches JAR unter
+`backend/target/employeemanagement-backend-1.0.0.jar`, das der Docker-Build
+anschließend nutzt.
+
+> Wenn nur Frontend-Code (`frontend/src/...`) geändert wurde, **kannst du
+> Schritt 1 überspringen** — Docker baut das Frontend aus den Quellen.
+
+### Schritt 2 — Container bauen + starten
+
+```bash
+cd E:/Projekte/ClaudeCode/EmployeeManagement
+docker compose up -d --build
+```
+
+Das läuft ca. 30–90 Sekunden. Die Datenbank (`postgres`-Volume) bleibt
+erhalten, Flyway-Migrationen werden beim Backend-Start automatisch
+angewendet.
+
+**Nur ein Service geändert?** Dann gezielt:
+
+```bash
+# Nur Backend neu bauen + starten:
+docker compose up -d --build backend
+
+# Nur Frontend:
+docker compose up -d --build frontend
+```
+
+### Schritt 3 — Status prüfen
+
+```bash
+docker ps --filter "name=employeemanagement" --format "table {{.Names}}\t{{.Status}}"
+```
+
+Alle drei Container müssen `(healthy)` zeigen.
+
+### Schritt 4 — Im Browser testen
+
+- http://localhost:3000 öffnen (Strg+Shift+R für Hard-Refresh)
+- Login: `admin@firma.de` / `admin123`
+- Feature durchspielen
+
+### Schritt 5 — Commit + Push
+
+Wenn das Feature lokal läuft, die Änderung einchecken:
+
+```bash
+cd E:/Projekte/ClaudeCode/EmployeeManagement
+git add -A
+git commit -m "feat: kurze Beschreibung der Änderung"
+git push
+```
+
+Der Push löst automatisch die GitHub Action aus, die die Admin(s) per
+E-Mail informiert, dass ein Produktions-Deployment ansteht.
+
+---
+
+## B) Remote deployen (Produktions-VPS)
+
+Ausgangslage: Die Änderung ist nach `main` gepusht; du willst sie live
+auf https://em.cavdar.de schalten.
+
+### Schritt 1 — Auf den Server verbinden
+
+```bash
+ssh vps
+```
+
+(Voraussetzung: SSH-Config steht — siehe Abschnitt "SSH-Konfiguration" weiter unten.)
+
+### Schritt 2 — Ins Projektverzeichnis wechseln
+
+```bash
+cd /opt/employeemanagement
+```
+
+### Schritt 3 — Datenbank-Backup (Sicherheitsnetz, Pflicht!)
+
+```bash
+docker exec employeemanagement-postgres \
+  pg_dump -U employeemanagement employeemanagement \
+  > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
+
+# Kontrolle:
+ls -lh /opt/backups/employeemanagement/ | tail -3
+```
+
+Ohne Backup → kein Deploy. Falls eine Flyway-Migration die DB beschädigt,
+kann das Backup sie wiederherstellen.
+
+### Schritt 4 — Code holen
+
+```bash
+git pull
+```
+
+Falls ein Fehler `unsafe directory` erscheint, einmalig:
+
+```bash
+git config --global --add safe.directory /opt/employeemanagement
+git pull
+```
+
+### Schritt 5 — Container neu bauen (mit `--no-cache`!)
+
+Je nach Änderungsumfang:
+
+```bash
+# Backend + Frontend (typisch bei größeren Änderungen):
+docker compose build --no-cache backend frontend
+
+# Nur Backend:
+docker compose build --no-cache backend
+
+# Nur Frontend:
+docker compose build --no-cache frontend
+```
+
+`--no-cache` ist wichtig, damit Docker den neuen Code kompiliert und nicht
+die alte gecachte Schicht nimmt. Build-Dauer: ca. 1–3 Minuten.
+
+### Schritt 6 — Starten
+
+```bash
+docker compose up -d
+```
+
+Spring Boot braucht ~30 Sekunden zum Hochfahren (Flyway-Migrationen,
+App-Start).
+
+### Schritt 7 — Health-Checks
+
+```bash
+docker compose ps
+```
+
+Alle drei müssen `(healthy)` zeigen. Zusätzlich schnell prüfen:
+
+```bash
+curl -s http://localhost:8082/actuator/health
+# → {"status":"UP"}
+```
+
+Wenn etwas rot ist:
+
+```bash
+docker logs employeemanagement-backend  --tail 80
+docker logs employeemanagement-frontend --tail 80
+```
+
+### Schritt 8 — Browser-Test
+
+- https://em.cavdar.de aufrufen (Strg+Shift+R)
+- Mit Admin einloggen
+- Das geänderte Feature kurz antesten
+
+### Schritt 9 — Aufräumen (optional)
+
+```bash
+docker image prune -f   # alte Images löschen, Platz freigeben
+df -h /                 # freien Plattenplatz prüfen
+```
+
+---
+
+## Kurzversion zum Copy-Paste
+
+**Lokal (PC, aus `E:\Projekte\ClaudeCode\EmployeeManagement`):**
+
+```bash
+cd backend && ../ci.cmd 25 && cd ..
+docker compose up -d --build
+docker ps --filter "name=employeemanagement"
+```
+
+**Remote (nach `ssh vps`):**
+
+```bash
+cd /opt/employeemanagement
+docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
+git pull
+docker compose build --no-cache backend frontend
+docker compose up -d
+sleep 30 && docker compose ps
+curl -s http://localhost:8082/actuator/health
+```
+
+---
+
+## Entscheidungshilfe: Was muss ich neu bauen?
+
+| Du hast geändert … | Lokal Schritt 1 (ci.cmd)? | Image neu bauen |
+|---|---|---|
+| `backend/src/main/java/...` (Java-Code) | **Ja** | `backend` |
+| `backend/src/main/resources/db/migration/*.sql` (Flyway) | **Ja** | `backend` |
+| `backend/pom.xml` (Dependencies) | **Ja** | `backend` |
+| `frontend/src/...` (React / JSX) | Nein | `frontend` |
+| `frontend/package.json` (NPM-Deps) | Nein | `frontend` |
+| `docker-compose*.yml` (nur Env, Ports) | Nein | gar nichts, nur `up -d` |
+| Nur `.md`-Dateien (Docs) | Nein | gar nichts |
+
+---
+
+## Wenn etwas schiefgeht
+
+Siehe Abschnitt **Fehlerbehebung** am Ende des Dokuments. Die wichtigsten
+Fälle: Flyway-Checksum-Fehler, unhealthy Container, Browser zeigt alte
+Version (Cache!).
+
+---
+
 ## Was ist ein Deployment überhaupt?
 
 Wenn du eine App auf deinem PC entwickelst, läuft sie nur bei dir. "Deployment" bedeutet:
@@ -516,18 +757,10 @@ die compose-Dateien bleiben aber im Repo und das VPS-Deployment funktioniert wei
 
 ---
 
-=======================================================================================================================
-# Manuell auf dem Hetzner-Server ausführen (nach Code-Änderungen)
-=======================================================================================================================
+## SSH-Konfiguration (einmalig, auf dem eigenen PC)
 
-## Voraussetzungen
-
-- SSH-Zugang zum Server ist konfiguriert (siehe SSH-Config unten)
-- Code-Änderungen sind committet und nach GitHub gepusht (`git push`)
-
-### SSH-Konfiguration (einmalig, auf dem eigenen PC)
-
-In `~/.ssh/config` muss folgender Eintrag stehen:
+Damit `ssh vps` als Kurzform funktioniert, in `~/.ssh/config`
+folgenden Eintrag hinterlegen:
 
 ```
 Host vps cavdar-vps 94.130.228.157
@@ -537,157 +770,7 @@ Host vps cavdar-vps 94.130.228.157
   PreferredAuthentications publickey
 ```
 
-Danach kann man sich mit `ssh vps` verbinden.
-
----
-
-## Schritt-für-Schritt: Deployment
-
-### 1. Auf den Server verbinden
-
-```bash
-ssh vps
-```
-
-### 2. Ins Projektverzeichnis wechseln
-
-```bash
-cd /opt/employeemanagement
-```
-
-### 3. Datenbank-Backup erstellen (Sicherheitsnetz)
-
-Immer vor einem Update ein Backup machen, damit man im Notfall
-die Daten wiederherstellen kann.
-
-```bash
-docker exec employeemanagement-postgres \
-  pg_dump -U employeemanagement employeemanagement \
-  > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
-
-# Prüfen ob das Backup erstellt wurde:
-ls -lh /opt/backups/employeemanagement/ | tail -3
-```
-
-### 4. Neuesten Code von GitHub holen
-
-```bash
-git pull
-```
-
-Falls eine Fehlermeldung "unsafe directory" kommt:
-```bash
-git config --global --add safe.directory /opt/employeemanagement
-git pull
-```
-
-### 5. Container neu bauen
-
-Je nachdem was sich geändert hat:
-
-```bash
-# Nur Backend geändert (Java-Code, Migrationen):
-docker compose build --no-cache backend
-
-# Nur Frontend geändert (React-Code):
-docker compose build --no-cache frontend
-
-# Beides geändert:
-docker compose build --no-cache backend frontend
-```
-
-**Hinweis:** `--no-cache` ist wichtig, damit Docker den neuen Code
-tatsächlich kompiliert und nicht den alten aus dem Cache nimmt.
-Der Build dauert ca. 1–3 Minuten.
-
-### 6. Container neu starten
-
-```bash
-# Alles auf einmal starten (empfohlen):
-docker compose up -d
-
-# Oder einzeln (für Rolling Update ohne Downtime):
-docker compose up -d --no-deps backend
-```
-
-Die Reihenfolge ist automatisch: PostgreSQL → Backend → Frontend.
-Das Backend braucht ca. 20–30 Sekunden zum Hochfahren (Flyway-
-Migrationen, Spring-Boot-Start).
-
-### 7. Prüfen ob alle Container laufen
-
-```bash
-docker compose ps
-```
-
-Erwartete Ausgabe — alle drei müssen **(healthy)** zeigen:
-
-```
-NAME                          STATUS
-employeemanagement-backend    Up X seconds (healthy)
-employeemanagement-frontend   Up X seconds (healthy)
-employeemanagement-postgres   Up X days (healthy)
-```
-
-Falls ein Container **unhealthy** oder **restarting** ist:
-```bash
-# Logs des betroffenen Containers prüfen:
-docker logs employeemanagement-backend --tail 50
-docker logs employeemanagement-frontend --tail 50
-```
-
-### 8. Anwendung testen
-
-```bash
-# Backend Health-Check:
-curl -s http://localhost:8082/actuator/health
-# Erwartete Antwort: {"status":"UP"}
-
-# Login testen:
-curl -s http://localhost:8082/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@firma.de","password":"admin123"}'
-# Erwartete Antwort: {"token":"eyJ...","tokenType":"Bearer","expiresInMs":86400000}
-
-# Frontend erreichbar?
-curl -s -o /dev/null -w "HTTP: %{http_code}" http://localhost:3000
-# Erwartete Antwort: HTTP: 200
-```
-
-### 9. Im Browser testen
-
-- https://em.cavdar.de/ aufrufen
-- **Strg+Shift+R** drücken (Hard Refresh, damit der Browser-Cache geleert wird)
-- Einloggen mit **admin@firma.de / admin123**
-- Mitarbeiter, Hardware, Software Seiten prüfen
-
-### 10. Aufräumen (optional)
-
-```bash
-# Alte, nicht mehr verwendete Docker-Images löschen (spart Speicherplatz):
-docker image prune -f
-
-# Speicherplatz auf dem Server prüfen:
-df -h /
-```
-
----
-
-## Kurzversion (Copy-Paste)
-
-Wenn alles schon eingerichtet ist und man nur schnell deployen will:
-
-```bash
-ssh vps
-cd /opt/employeemanagement
-docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
-git pull
-docker compose build --no-cache backend frontend
-docker compose up -d
-sleep 30
-docker compose ps
-curl -s http://localhost:8082/actuator/health
-```
+Danach verbindet `ssh vps` sich direkt.
 
 ---
 
