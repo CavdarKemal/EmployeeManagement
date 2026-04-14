@@ -24,85 +24,53 @@ const FILTER_LABELS = {
   RETIRED:     "Ausgemustert",
 };
 
-// ── Loan Dialog ──────────────────────────────────────────────
-function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
-  const activeLoan = loans.find((l) => l.hardwareId === hardware.id && !l.returnedAt);
-  const loanee = activeLoan ? employees.find((e) => e.id === activeLoan.employeeId) : null;
+// ── Loan Dialog (Unit-basiert) ──────────────────────────────────
+function LoanDialog({ hardware, units, employees, onLoan, onReturn, onClose }) {
+  const loanedUnits    = units.filter((u) => u.status === "LOANED");
+  const availableUnits = units.filter((u) => u.status === "AVAILABLE");
+  const hasLoaned    = loanedUnits.length > 0;
+  const hasAvailable = availableUnits.length > 0;
 
-  const [mode, setMode]           = useState(activeLoan ? "return" : "loan");
+  const [mode, setMode]           = useState(hasAvailable ? "loan" : "return");
+  const [unitId, setUnitId]       = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [notes, setNotes]         = useState("");
   const [saving, setSaving]       = useState(false);
 
   const handleAction = async () => {
+    if (!unitId) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 400));
-    if (mode === "loan") {
-      onLoan(hardware.id, Number(employeeId), returnDate, notes);
-    } else {
-      onReturn(hardware.id, notes);
-    }
-    setSaving(false);
-    onClose();
+    try {
+      if (mode === "loan") await onLoan(Number(unitId), Number(employeeId), returnDate, notes);
+      else                 await onReturn(Number(unitId), notes);
+      onClose();
+    } finally { setSaving(false); }
   };
-
-  const st = STATUS[hardware.status] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)", label: hardware.status };
 
   return (
     <Modal title={`${HW_EMOJI[hardware.category] || "🖥️"} ${hardware.name}`} onClose={onClose}>
-
-      {/* Device info */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "12px 14px",
-          background: "#0f172a",
-          borderRadius: "8px",
-          border: "1px solid #334155",
-        }}
-      >
-        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
-              {hardware.name}
-            </div>
-            <div style={{ fontSize: 11, color: "#475569", fontFamily: "'DM Sans', sans-serif", marginTop: 3 }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "#a5b4fc" }}>{hardware.assetTag}</span>
-              {" · "}{hardware.manufacturer} {hardware.model}
-            </div>
-          </div>
-          <Badge label={st.label} color={st.color} bg={st.bg} sm />
+      <div style={{
+        marginBottom: 16, padding: "12px 14px", background: "#0f172a",
+        borderRadius: 8, border: "1px solid #334155", fontSize: 13,
+        color: "#94a3b8", fontFamily: "'DM Sans', sans-serif",
+      }}>
+        <div style={{ fontWeight: 600, color: "#f1f5f9", marginBottom: 4 }}>
+          {hardware.manufacturer} · {hardware.model}
         </div>
+        Verfügbar: <strong style={{ color: "#34d399" }}>{availableUnits.length}</strong>
+        {" · "}Ausgeliehen: <strong style={{ color: "#f59e0b" }}>{loanedUnits.length}</strong>
+        {" · "}Gesamt: <strong style={{ color: "#f1f5f9" }}>{units.length}</strong>
       </div>
 
-      {activeLoan && loanee && (
-        <div
-          style={{
-            marginBottom: 14,
-            padding: "10px 14px",
-            background: "rgba(245,158,11,0.08)",
-            borderRadius: "8px",
-            border: "1px solid rgba(245,158,11,0.3)",
-            fontSize: 13,
-            color: "#f59e0b",
-            fontFamily: "'DM Sans', sans-serif",
-          }}
-        >
-          ⚠️ Ausgeliehen an{" "}
-          <strong style={{ color: "#fbbf24" }}>{loanee.firstName} {loanee.lastName}</strong>
-          {" "}seit {activeLoan.loanDate}
-        </div>
-      )}
-
       <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        {!activeLoan && (
-          <Btn variant={mode === "loan" ? "primary" : "secondary"} onClick={() => setMode("loan")}>
+        {hasAvailable && (
+          <Btn variant={mode === "loan" ? "primary" : "secondary"} onClick={() => { setMode("loan"); setUnitId(""); }}>
             📤 Ausleihen
           </Btn>
         )}
-        {activeLoan && (
-          <Btn variant={mode === "return" ? "primary" : "secondary"} onClick={() => setMode("return")}>
+        {hasLoaned && (
+          <Btn variant={mode === "return" ? "primary" : "secondary"} onClick={() => { setMode("return"); setUnitId(""); }}>
             📥 Zurückgeben
           </Btn>
         )}
@@ -110,6 +78,15 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
 
       {mode === "loan" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Select
+            label="Gerät *"
+            value={unitId}
+            onChange={(e) => setUnitId(e.target.value)}
+            options={availableUnits.map((u) => ({
+              value: u.id,
+              label: `${u.assetTag}${u.serialNumber ? " · SN " + u.serialNumber : ""}`,
+            }))}
+          />
           <Select
             label="Mitarbeiter *"
             value={employeeId}
@@ -126,28 +103,22 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
 
       {mode === "return" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div
-            style={{
-              padding: "12px 14px",
-              background: "rgba(16,185,129,0.08)",
-              borderRadius: "8px",
-              border: "1px solid rgba(16,185,129,0.3)",
-              fontSize: 13,
-              color: "#10b981",
-              fontFamily: "'DM Sans', sans-serif",
-            }}
-          >
-            ✅ Hardware wird von{" "}
-            <strong style={{ color: "#34d399" }}>{loanee?.firstName} {loanee?.lastName}</strong>
-            {" "}zurückgenommen und als "Verfügbar" markiert.
-          </div>
+          <Select
+            label="Zurückzugebendes Gerät *"
+            value={unitId}
+            onChange={(e) => setUnitId(e.target.value)}
+            options={loanedUnits.map((u) => ({
+              value: u.id,
+              label: `${u.assetTag}${u.serialNumber ? " · SN " + u.serialNumber : ""}`,
+            }))}
+          />
           <Input label="Zustandsnotiz" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="z.B. Gerät in gutem Zustand …" />
         </div>
       )}
 
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
-        <Btn onClick={handleAction} disabled={saving || (mode === "loan" && !employeeId)}>
+        <Btn onClick={handleAction} disabled={saving || !unitId || (mode === "loan" && !employeeId)}>
           {saving ? "…" : mode === "loan" ? "📤 Ausleihen" : "📥 Zurückgeben"}
         </Btn>
       </div>
@@ -155,11 +126,12 @@ function LoanDialog({ hardware, employees, loans, onLoan, onReturn, onClose }) {
   );
 }
 
-// ── Hardware Form Modal ──────────────────────────────────────
+// ── Hardware Form Modal (mit dynamischer Unit-Liste) ───────────
 function HardwareFormModal({ hardware, onSave, onClose, toast }) {
+  const isEdit = Boolean(hardware?.id);
   const initial = hardware ?? {
-    assetTag: "", name: "", category: "LAPTOP", manufacturer: "", model: "",
-    serialNumber: "", purchasePrice: "", warrantyUntil: "", status: "AVAILABLE", notes: "",
+    name: "", category: "LAPTOP", manufacturer: "", model: "", notes: "",
+    units: [{ assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
   };
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState({});
@@ -167,10 +139,30 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
 
+  const setUnit = (idx, k, v) => {
+    setForm((f) => ({ ...f, units: f.units.map((u, i) => (i === idx ? { ...u, [k]: v } : u)) }));
+    setErrors((e) => ({ ...e, [`unit_${idx}_${k}`]: "" }));
+  };
+
+  const addUnit = () => setForm((f) => ({
+    ...f,
+    units: [...f.units, { assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
+  }));
+
+  const removeUnit = (idx) => setForm((f) => ({
+    ...f,
+    units: f.units.length > 1 ? f.units.filter((_, i) => i !== idx) : f.units,
+  }));
+
   const validate = () => {
     const e = {};
-    if (!form.assetTag) e.assetTag = "Pflichtfeld";
     if (!form.name) e.name = "Pflichtfeld";
+    if (!isEdit) {
+      if (!form.units?.length) e.units = "Mindestens ein Gerät erforderlich";
+      form.units?.forEach((u, i) => {
+        if (!u.assetTag) e[`unit_${i}_assetTag`] = "Asset-Tag erforderlich";
+      });
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -179,10 +171,27 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload = { ...form, purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : null };
-      const result = form.id
-        ? await api.put(`/hardware/${form.id}`, payload)
-        : await api.post("/hardware", payload);
+      const payload = {
+        name: form.name,
+        category: form.category,
+        manufacturer: form.manufacturer,
+        model: form.model,
+        notes: form.notes,
+      };
+      let result;
+      if (isEdit) {
+        result = await api.put(`/hardware/${form.id}`, payload);
+      } else {
+        payload.units = form.units.map((u) => ({
+          assetTag: u.assetTag,
+          serialNumber: u.serialNumber || null,
+          purchaseDate: u.purchaseDate || null,
+          warrantyUntil: u.warrantyUntil || null,
+          purchasePrice: u.purchasePrice ? Number(u.purchasePrice) : null,
+          status: "AVAILABLE",
+        }));
+        result = await api.post("/hardware", payload);
+      }
       onSave(result);
     } catch (err) {
       toast?.(err?.message || "Speichern fehlgeschlagen");
@@ -192,32 +201,179 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
   };
 
   return (
-    <Modal title={hardware ? "Hardware bearbeiten" : "Neue Hardware"} onClose={onClose} width={600}>
+    <Modal title={isEdit ? "Hardware bearbeiten" : "Neue Hardware"} onClose={onClose} width={760}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <Input label="Asset-Tag" value={form.assetTag} onChange={(e) => set("assetTag", e.target.value)} required error={errors.assetTag} placeholder="HW-0005" />
         <Input label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} required error={errors.name} placeholder='MacBook Pro 16"' />
         <Select label="Kategorie" value={form.category} onChange={(e) => set("category", e.target.value)} options={["LAPTOP", "MONITOR", "TABLET", "PHONE", "DESKTOP", "ACCESSORY"]} />
-        <Select label="Status" value={form.status} onChange={(e) => set("status", e.target.value)} options={["AVAILABLE", "LOANED", "MAINTENANCE", "RETIRED"]} />
         <Input label="Hersteller" value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)} placeholder="Apple" />
         <Input label="Modell" value={form.model} onChange={(e) => set("model", e.target.value)} placeholder="MK183D/A" />
-        <Input label="Seriennummer" value={form.serialNumber} onChange={(e) => set("serialNumber", e.target.value)} />
-        <Input label="Kaufpreis (€)" type="number" value={form.purchasePrice} onChange={(e) => set("purchasePrice", e.target.value)} placeholder="2899" />
-        <Input label="Garantie bis" type="date" value={form.warrantyUntil} onChange={(e) => set("warrantyUntil", e.target.value)} />
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>Notizen</label>
           <textarea
             value={form.notes || ""}
             onChange={(e) => set("notes", e.target.value)}
             placeholder="Interne Bemerkungen …"
-            rows={3}
+            rows={2}
             style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155", fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", resize: "vertical" }}
           />
         </div>
       </div>
+
+      {!isEdit && (
+        <div style={{ marginTop: 22 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
+              Geräte ({form.units.length})
+            </span>
+            <Btn sm variant="secondary" onClick={addUnit}>+ Seriennummer hinzufügen</Btn>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {form.units.map((u, i) => (
+              <div key={i} style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
+                gap: 8,
+                padding: 10,
+                background: "#0f172a",
+                borderRadius: 8,
+                border: "1px solid #334155",
+              }}>
+                <Input label="Asset-Tag *" value={u.assetTag}
+                       onChange={(e) => setUnit(i, "assetTag", e.target.value)}
+                       error={errors[`unit_${i}_assetTag`]} placeholder="HW-0001" />
+                <Input label="Seriennummer" value={u.serialNumber}
+                       onChange={(e) => setUnit(i, "serialNumber", e.target.value)} />
+                <Input label="Kaufdatum" type="date" value={u.purchaseDate}
+                       onChange={(e) => setUnit(i, "purchaseDate", e.target.value)} />
+                <Input label="Garantie bis" type="date" value={u.warrantyUntil}
+                       onChange={(e) => setUnit(i, "warrantyUntil", e.target.value)} />
+                <button
+                  onClick={() => removeUnit(i)}
+                  disabled={form.units.length === 1}
+                  title={form.units.length === 1 ? "Mindestens 1 Gerät erforderlich" : "Entfernen"}
+                  style={{
+                    alignSelf: "end",
+                    padding: "8px 10px",
+                    background: "transparent",
+                    border: "1px solid #334155",
+                    borderRadius: 6,
+                    color: form.units.length === 1 ? "#334155" : "#ef4444",
+                    cursor: form.units.length === 1 ? "not-allowed" : "pointer",
+                    fontSize: 16,
+                  }}
+                >×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
         <Btn onClick={handleSave} disabled={saving}>{saving ? "Speichern …" : "Speichern"}</Btn>
       </div>
+    </Modal>
+  );
+}
+
+// ── Unit Management Modal ──────────────────────────────────────
+function UnitManagementModal({ hardware, onClose, toast }) {
+  const [units, setUnits] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [newUnit, setNewUnit] = useState({ assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" });
+
+  const reload = () => {
+    setLoading(true);
+    api.get(`/hardware/${hardware.id}/units`)
+      .then((d) => setUnits(d || []))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { reload(); }, [hardware.id]);
+
+  const addUnit = async () => {
+    if (!newUnit.assetTag) { toast?.("Asset-Tag erforderlich"); return; }
+    try {
+      await api.post(`/hardware/${hardware.id}/units`, {
+        assetTag: newUnit.assetTag,
+        serialNumber: newUnit.serialNumber || null,
+        purchaseDate: newUnit.purchaseDate || null,
+        warrantyUntil: newUnit.warrantyUntil || null,
+        purchasePrice: newUnit.purchasePrice ? Number(newUnit.purchasePrice) : null,
+        status: "AVAILABLE",
+      });
+      setAdding(false);
+      setNewUnit({ assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" });
+      reload();
+      toast?.("Gerät hinzugefügt");
+    } catch (err) { toast?.(err?.message || "Anlegen fehlgeschlagen"); }
+  };
+
+  const deleteUnit = async (id) => {
+    if (!window.confirm("Gerät wirklich löschen?")) return;
+    try { await api.delete(`/hardware/units/${id}`); reload(); toast?.("Gerät gelöscht"); }
+    catch (err) { toast?.(err?.message || "Löschen fehlgeschlagen"); }
+  };
+
+  return (
+    <Modal title={`Geräte: ${hardware.name}`} onClose={onClose} width={820}>
+      {loading ? <Spinner /> : (
+        <>
+          <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse", fontFamily: "'DM Sans', sans-serif" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #334155", color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>
+                <th style={{ padding: 10, textAlign: "left" }}>Asset-Tag</th>
+                <th style={{ padding: 10, textAlign: "left" }}>Seriennummer</th>
+                <th style={{ padding: 10, textAlign: "left" }}>Status</th>
+                <th style={{ padding: 10, textAlign: "left" }}>Garantie</th>
+                <th style={{ padding: 10 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {units.map((u) => {
+                const st = STATUS[u.status] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)", label: u.status };
+                return (
+                  <tr key={u.id} style={{ borderBottom: "1px solid #334155", color: "#f1f5f9" }}>
+                    <td style={{ padding: 10 }}>
+                      <code style={{ color: "#a5b4fc", fontFamily: "'JetBrains Mono', monospace" }}>{u.assetTag}</code>
+                    </td>
+                    <td style={{ padding: 10 }}>{u.serialNumber || "—"}</td>
+                    <td style={{ padding: 10 }}><Badge label={st.label} color={st.color} bg={st.bg} sm /></td>
+                    <td style={{ padding: 10 }}>{u.warrantyUntil ? new Date(u.warrantyUntil).toLocaleDateString("de-DE") : "—"}</td>
+                    <td style={{ padding: 10, textAlign: "right" }}>
+                      <Btn sm variant="danger" disabled={u.status === "LOANED"} onClick={() => deleteUnit(u.id)}>Löschen</Btn>
+                    </td>
+                  </tr>
+                );
+              })}
+              {units.length === 0 && (
+                <tr><td colSpan={5} style={{ padding: 20, textAlign: "center", color: "#64748b" }}>Keine Geräte vorhanden</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {!adding && (
+            <div style={{ marginTop: 14 }}>
+              <Btn variant="secondary" onClick={() => setAdding(true)}>+ Gerät hinzufügen</Btn>
+            </div>
+          )}
+          {adding && (
+            <div style={{ marginTop: 14, padding: 12, background: "#0f172a", borderRadius: 8, border: "1px solid #334155" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                <Input label="Asset-Tag *" value={newUnit.assetTag} onChange={(e) => setNewUnit({ ...newUnit, assetTag: e.target.value })} />
+                <Input label="Seriennummer" value={newUnit.serialNumber} onChange={(e) => setNewUnit({ ...newUnit, serialNumber: e.target.value })} />
+                <Input label="Kaufdatum" type="date" value={newUnit.purchaseDate} onChange={(e) => setNewUnit({ ...newUnit, purchaseDate: e.target.value })} />
+                <Input label="Garantie bis" type="date" value={newUnit.warrantyUntil} onChange={(e) => setNewUnit({ ...newUnit, warrantyUntil: e.target.value })} />
+              </div>
+              <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <Btn variant="ghost" onClick={() => setAdding(false)}>Abbrechen</Btn>
+                <Btn onClick={addUnit}>Anlegen</Btn>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </Modal>
   );
 }
@@ -231,33 +387,42 @@ function HardwarePage({ toast }) {
   const mayImport = canImport(user);
   const [hardware, setHardware] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [loans, setLoans]       = useState([]);
   const [search, setSearch]     = useState("");
   const [filter, setFilter]     = useState("ALL");
-  const [loanDialog, setLoanDialog] = useState(null);
+  const [loanDialogHw, setLoanDialogHw]   = useState(null);
+  const [loanDialogUnits, setLoanDialogUnits] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editHw, setEditHw] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
+  const [unitsDialog, setUnitsDialog] = useState(null);
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
+  const reloadHardware = () =>
+    api.get("/hardware?size=200").then((data) => { if (data?.content) setHardware(data.content); });
+
   useEffect(() => {
     Promise.all([
-      api.get("/hardware?size=200").then((data) => { if (data?.content) setHardware(data.content); }),
+      reloadHardware(),
       api.get("/employees?size=200").then((data) => { if (data?.content) setEmployees(data.content); }),
     ]).catch(() => toast?.("Hardware konnte nicht geladen werden"))
       .finally(() => setLoading(false));
   }, []);
 
-  // Page zurücksetzen bei Filter-/Suche-Änderung
   useEffect(() => { setPage(0); }, [search, filter]);
 
+  const statusFor = (hw) => {
+    if (hw.availableQuantity > 0) return "AVAILABLE";
+    if (hw.totalQuantity > 0) return "LOANED";
+    return "RETIRED";
+  };
+
   const filtered = hardware.filter((h) => {
-    const matchSearch = `${h.name} ${h.assetTag} ${h.manufacturer}`.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "ALL" || h.status === filter;
+    const matchSearch = `${h.name} ${h.manufacturer} ${h.model}`.toLowerCase().includes(search.toLowerCase());
+    const matchFilter = filter === "ALL" || statusFor(h) === filter;
     return matchSearch && matchFilter;
   });
 
@@ -277,25 +442,35 @@ function HardwarePage({ toast }) {
     }
   };
 
-  const handleLoan = async (hwId, empId, returnDate, notes) => {
+  const openLoanDialog = async (hw) => {
     try {
-      await api.post(`/loans/hardware/${hwId}/loan`, {
+      const units = await api.get(`/hardware/${hw.id}/units`);
+      setLoanDialogUnits(units || []);
+      setLoanDialogHw(hw);
+    } catch {
+      toast?.("Geräte konnten nicht geladen werden");
+    }
+  };
+
+  const handleLoan = async (unitId, empId, returnDate, notes) => {
+    try {
+      await api.post(`/loans/hardware-unit/${unitId}/loan`, {
         employeeId: empId,
         returnDate: returnDate || null,
         notes: notes || null,
       });
-      setHardware((h) => h.map((hw) => (hw.id === hwId ? { ...hw, status: "LOANED" } : hw)));
-      toast("Hardware erfolgreich ausgeliehen");
+      await reloadHardware();
+      toast("Gerät erfolgreich ausgeliehen");
     } catch (err) {
       toast(err?.message || "Ausleihe fehlgeschlagen");
     }
   };
 
-  const handleReturn = async (hwId) => {
+  const handleReturn = async (unitId, notes) => {
     try {
-      await api.post(`/loans/hardware/${hwId}/return`);
-      setHardware((h) => h.map((hw) => (hw.id === hwId ? { ...hw, status: "AVAILABLE" } : hw)));
-      toast("Hardware zurückgenommen");
+      await api.post(`/loans/hardware-unit/${unitId}/return`, { notes: notes || null });
+      await reloadHardware();
+      toast("Gerät zurückgenommen");
     } catch (err) {
       toast(err?.message || "Rückgabe fehlgeschlagen");
     }
@@ -304,9 +479,7 @@ function HardwarePage({ toast }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
       {loading && <Spinner text="Hardware laden …" />}
-      {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        {/* Search */}
         <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
           <svg
             width="16" height="16" viewBox="0 0 16 16" fill="none"
@@ -338,9 +511,8 @@ function HardwarePage({ toast }) {
           />
         </div>
 
-        {/* Filter pills */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {["ALL", "AVAILABLE", "LOANED", "MAINTENANCE", "RETIRED"].map((s) => {
+          {["ALL", "AVAILABLE", "LOANED"].map((s) => {
             const active = filter === s;
             return (
               <button
@@ -369,76 +541,52 @@ function HardwarePage({ toast }) {
         <Btn variant="secondary" onClick={() => downloadPdf("/reports/hardware", "Hardware-Inventar.pdf").catch(() => toast("PDF fehlgeschlagen"))}>PDF</Btn>
         {mayImport && <Btn variant="secondary" onClick={() => setShowImport(true)}>CSV Import</Btn>}
         <Btn variant="secondary" onClick={() => exportCSV(hardware, [
-          { key: "assetTag", label: "Asset-Tag" }, { key: "name", label: "Name" },
-          { key: "category", label: "Kategorie" }, { key: "manufacturer", label: "Hersteller" },
-          { key: "model", label: "Modell" }, { key: "serialNumber", label: "Seriennummer" },
-          { key: "status", label: "Status" }, { key: "purchasePrice", label: "Kaufpreis" },
-          { key: "warrantyUntil", label: "Garantie bis" }, { key: "notes", label: "Notizen" },
+          { key: "name", label: "Name" }, { key: "category", label: "Kategorie" },
+          { key: "manufacturer", label: "Hersteller" }, { key: "model", label: "Modell" },
+          { key: "totalQuantity", label: "Gesamt" }, { key: "availableQuantity", label: "Verfügbar" },
+          { key: "notes", label: "Notizen" },
         ], "Hardware")}>CSV Export</Btn>
         {mayWrite && <Btn onClick={() => setShowForm(true)}>＋ Hardware</Btn>}
       </div>
 
-      {/* Sort Buttons */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>Sortieren:</span>
         <SortButton label="Name" sortKey="name" sortConfig={sortConfig} onSort={requestSort} />
-        <SortButton label="Asset-Tag" sortKey="assetTag" sortConfig={sortConfig} onSort={requestSort} />
         <SortButton label="Kategorie" sortKey="category" sortConfig={sortConfig} onSort={requestSort} />
         <SortButton label="Hersteller" sortKey="manufacturer" sortConfig={sortConfig} onSort={requestSort} />
-        <SortButton label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-        <SortButton label="Garantie" sortKey="warrantyUntil" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Verfügbar" sortKey="availableQuantity" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Gesamt" sortKey="totalQuantity" sortConfig={sortConfig} onSort={requestSort} />
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
 
-      {/* Table */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          background: "#1e293b",
-          borderRadius: "12px",
-          border: "1px solid #334155",
-          overflow: "hidden",
-        }}
-      >
+      <div style={{
+        flex: 1, overflowY: "auto", background: "#1e293b",
+        borderRadius: "12px", border: "1px solid #334155", overflow: "hidden",
+      }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#0f172a" }}>
-              {["", "Asset-Tag", "Gerät", "Kategorie", "Status", "Garantie", "Zugewiesen an", ""].map((h, i) => (
-                <th
-                  key={i}
-                  style={{
-                    padding: "12px 14px",
-                    textAlign: "left",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#64748b",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    fontFamily: "'DM Sans', sans-serif",
-                    borderBottom: "1px solid #334155",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {h}
-                </th>
+              {["", "Bestand", "Modell", "Kategorie", "Hersteller · Modell", ""].map((h, i) => (
+                <th key={i} style={{
+                  padding: "12px 14px", textAlign: "left", fontSize: 11,
+                  fontWeight: 600, color: "#64748b", textTransform: "uppercase",
+                  letterSpacing: "0.06em", fontFamily: "'DM Sans', sans-serif",
+                  borderBottom: "1px solid #334155", whiteSpace: "nowrap",
+                }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {paged.map((hw, idx) => {
-              const loan     = loans.find((l) => l.hardwareId === hw.id && !l.returnedAt);
-              const assignee = loan ? employees.find((e) => e.id === loan.employeeId) : null;
-              const st       = STATUS[hw.status] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)", label: hw.status };
-              const warrantyExpired = new Date(hw.warrantyUntil) < new Date();
-
+              const total     = hw.totalQuantity ?? 0;
+              const available = hw.availableQuantity ?? 0;
               return (
                 <tr
                   key={hw.id}
                   style={{
                     fontSize: 13,
-                    borderBottom: idx < filtered.length - 1 ? "1px solid #334155" : "none",
+                    borderBottom: idx < paged.length - 1 ? "1px solid #334155" : "none",
                     transition: "background 150ms ease",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.05)")}
@@ -448,29 +596,20 @@ function HardwarePage({ toast }) {
                     {HW_EMOJI[hw.category] || "🖥️"}
                   </td>
                   <td style={{ padding: "14px 14px" }}>
-                    <code
-                      style={{
-                        fontSize: 13,
-                        background: "rgba(99,102,241,0.1)",
-                        padding: "3px 8px",
-                        borderRadius: "4px",
-                        color: "#a5b4fc",
-                        fontFamily: "'JetBrains Mono', monospace",
-                      }}
-                    >
-                      {hw.assetTag}
-                    </code>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 14, fontWeight: 600,
+                      color: available > 0 ? "#34d399" : "#f59e0b",
+                    }}>
+                      {available} / {total}
+                    </span>
                   </td>
                   <td style={{ padding: "14px 14px" }}>
                     <div style={{ fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
                       {hw.name}
                     </div>
-                    <div style={{ fontSize: 11, color: "#475569", marginTop: 2, fontFamily: "'DM Sans', sans-serif" }}>
-                      {hw.manufacturer} · {hw.model}
-                    </div>
                     {hw.notes && (
-                      <div style={{ fontSize: 11, color: "#6366f1", marginTop: 3, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}
-                        title={hw.notes}>
+                      <div style={{ fontSize: 11, color: "#6366f1", marginTop: 3, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }} title={hw.notes}>
                         {hw.notes.length > 40 ? hw.notes.substring(0, 40) + "…" : hw.notes}
                       </div>
                     )}
@@ -478,39 +617,17 @@ function HardwarePage({ toast }) {
                   <td style={{ padding: "14px 14px" }}>
                     <Badge label={hw.category} color="#94a3b8" bg="rgba(148,163,184,0.1)" sm />
                   </td>
-                  <td style={{ padding: "14px 14px" }}>
-                    <Badge label={st.label} color={st.color} bg={st.bg} sm />
-                  </td>
-                  <td
-                    style={{
-                      padding: "14px 14px",
-                      color: warrantyExpired ? "#ef4444" : "#64748b",
-                      fontSize: 12,
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}
-                  >
-                    {new Date(hw.warrantyUntil).toLocaleDateString("de-DE")}
-                    {warrantyExpired && " ⚠️"}
-                  </td>
-                  <td style={{ padding: "14px 14px" }}>
-                    {assignee ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <Avatar name={`${assignee.firstName} ${assignee.lastName}`} size={24} />
-                        <span style={{ fontSize: 12, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
-                          {assignee.firstName} {assignee.lastName}
-                        </span>
-                      </div>
-                    ) : (
-                      <span style={{ color: "#334155", fontSize: 12 }}>—</span>
-                    )}
+                  <td style={{ padding: "14px 14px", fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}>
+                    {hw.manufacturer || "—"} · {hw.model || "—"}
                   </td>
                   <td style={{ padding: "14px 14px" }}>
                     <div style={{ display: "flex", gap: 4 }}>
-                      {hw.status !== "RETIRED" && mayLoan && (
-                        <Btn sm variant="secondary" onClick={() => setLoanDialog(hw)}>
-                          {hw.status === "LOANED" ? "Rückgabe" : "Ausleihen"}
+                      {mayLoan && total > 0 && (
+                        <Btn sm variant="secondary" onClick={() => openLoanDialog(hw)}>
+                          Ausleihe
                         </Btn>
                       )}
+                      {mayWrite && <Btn sm variant="secondary" onClick={() => setUnitsDialog(hw)}>Geräte</Btn>}
                       {mayWrite && <Btn sm variant="secondary" onClick={() => { setEditHw(hw); setShowForm(true); }}>Bearbeiten</Btn>}
                       {mayDelete && <Btn sm variant="danger" onClick={() => setConfirmDelete(hw)}>Löschen</Btn>}
                     </div>
@@ -524,14 +641,14 @@ function HardwarePage({ toast }) {
 
       <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
 
-      {loanDialog && (
+      {loanDialogHw && (
         <LoanDialog
-          hardware={loanDialog}
+          hardware={loanDialogHw}
+          units={loanDialogUnits}
           employees={employees}
-          loans={loans}
           onLoan={handleLoan}
           onReturn={handleReturn}
-          onClose={() => setLoanDialog(null)}
+          onClose={() => { setLoanDialogHw(null); setLoanDialogUnits([]); }}
         />
       )}
 
@@ -555,7 +672,7 @@ function HardwarePage({ toast }) {
       {confirmDelete && (
         <Modal title="Hardware löschen" onClose={() => setConfirmDelete(null)} width={420}>
           <p style={{ color: "#cbd5e1", fontSize: 14, fontFamily: "'DM Sans', sans-serif", margin: "0 0 20px" }}>
-            Soll <strong style={{ color: "#f1f5f9" }}>{confirmDelete.name}</strong> ({confirmDelete.assetTag}) wirklich gelöscht werden?
+            Soll <strong style={{ color: "#f1f5f9" }}>{confirmDelete.name}</strong> (inkl. aller {confirmDelete.totalQuantity ?? 0} Geräte) wirklich gelöscht werden?
           </p>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
             <Btn variant="ghost" onClick={() => setConfirmDelete(null)}>Abbrechen</Btn>
@@ -568,9 +685,17 @@ function HardwarePage({ toast }) {
         <ImportDialog
           title="Hardware importieren"
           endpoint="hardware"
-          onDone={() => { api.get("/hardware?size=200").then((d) => { if (d?.content) setHardware(d.content); }); }}
+          onDone={() => reloadHardware()}
           onClose={() => setShowImport(false)}
           toast={toast}
+        />
+      )}
+
+      {unitsDialog && (
+        <UnitManagementModal
+          hardware={unitsDialog}
+          toast={toast}
+          onClose={() => { setUnitsDialog(null); reloadHardware(); }}
         />
       )}
     </div>
