@@ -14,6 +14,7 @@ import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { canWriteHardware, canDeleteHardware, canLoanHardware, canImport } from "../utils/permissions.js";
+import { useSortable, SortButton } from "../hooks/useSortable.js";
 
 const FILTER_LABELS = {
   ALL:         "Alle",
@@ -260,8 +261,10 @@ function HardwarePage({ toast }) {
     return matchSearch && matchFilter;
   });
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
+  const { sortedData, sortConfig, requestSort } = useSortable(filtered, { key: "name", direction: "asc" });
+
+  const totalPages = Math.ceil(sortedData.length / pageSize);
+  const paged = sortedData.slice(page * pageSize, (page + 1) * pageSize);
 
   const handleDelete = async (id) => {
     try {
@@ -373,6 +376,17 @@ function HardwarePage({ toast }) {
           { key: "warrantyUntil", label: "Garantie bis" }, { key: "notes", label: "Notizen" },
         ], "Hardware")}>CSV Export</Btn>
         {mayWrite && <Btn onClick={() => setShowForm(true)}>＋ Hardware</Btn>}
+      </div>
+
+      {/* Sort Buttons */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>Sortieren:</span>
+        <SortButton label="Name" sortKey="name" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Asset-Tag" sortKey="assetTag" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Kategorie" sortKey="category" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Hersteller" sortKey="manufacturer" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Garantie" sortKey="warrantyUntil" sortConfig={sortConfig} onSort={requestSort} />
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />

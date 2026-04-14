@@ -14,6 +14,7 @@ import { downloadPdf } from "../utils/pdfDownload.js";
 import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useSortable, SortButton } from "../hooks/useSortable.js";
 import { canWriteEmployees, canDeleteEmployees, canImport, canLoanHardware, canAssignSoftware } from "../utils/permissions.js";
 
 
@@ -173,6 +174,8 @@ function EmployeesPage({ toast }) {
       .toLowerCase()
       .includes(search.toLowerCase())
   );
+
+  const { sortedData, sortConfig, requestSort } = useSortable(filtered, { key: "lastName", direction: "asc" });
   const emp = employees.find((e) => e.id === selected);
 
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -264,6 +267,17 @@ function EmployeesPage({ toast }) {
         {mayWrite && <Btn onClick={() => { setEditEmp(null); setShowForm(true); }}>＋ Mitarbeiter</Btn>}
       </div>
 
+      {/* Sort Buttons */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>Sortieren:</span>
+        <SortButton label="Nachname" sortKey="lastName" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Vorname" sortKey="firstName" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Abteilung" sortKey="department" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Position" sortKey="position" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="MA-Nr." sortKey="employeeNumber" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Eingestellt" sortKey="hireDate" sortConfig={sortConfig} onSort={requestSort} />
+      </div>
+
       {loading && <Spinner text="Mitarbeiter laden …" />}
       <div style={{ display: loading ? "none" : "flex", gap: 0, flex: 1, minHeight: 0, background: "#1e293b", borderRadius: "12px", border: "1px solid #334155", overflow: "hidden" }}>
         {/* Master List */}
@@ -275,7 +289,7 @@ function EmployeesPage({ toast }) {
             borderRight: "1px solid #1e293b",
           }}
         >
-          {filtered.map((e, idx) => {
+          {sortedData.map((e, idx) => {
             const isActive = selected === e.id;
             const deptColor = DEPT[e.department] || "#6366f1";
             return (
@@ -291,7 +305,7 @@ function EmployeesPage({ toast }) {
                   transition: "background 150ms ease",
                   background: isActive ? "rgba(99,102,241,0.10)" : "transparent",
                   borderLeft: isActive ? "3px solid #6366f1" : "3px solid transparent",
-                  borderBottom: idx < filtered.length - 1 ? "1px solid #1e293b" : "none",
+                  borderBottom: idx < sortedData.length - 1 ? "1px solid #1e293b" : "none",
                 }}
                 onMouseEnter={(el) => { if (!isActive) el.currentTarget.style.background = "rgba(51,65,85,0.5)"; }}
                 onMouseLeave={(el) => { if (!isActive) el.currentTarget.style.background = "transparent"; }}
