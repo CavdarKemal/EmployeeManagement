@@ -64,6 +64,8 @@ app:
     warranty-days: 30
     renewal-days: 30
     return-days: 7
+  deploy-notify:
+    secret: ${APP_DEPLOY_NOTIFY_SECRET:}
 
 logging:
   level:
