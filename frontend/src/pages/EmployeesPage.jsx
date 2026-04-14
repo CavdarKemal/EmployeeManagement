@@ -539,7 +539,9 @@ function EmployeesPage({ toast }) {
                           <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#1e293b", borderRadius: "8px", border: "1px solid #334155" }}>
                             <div>
                               <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>{l.hardwareName}</div>
-                              <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{l.assetTag}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
+                                {l.assetTag}{l.serialNumber ? ` · SN ${l.serialNumber}` : ""}
+                              </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                               <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
@@ -548,7 +550,7 @@ function EmployeesPage({ toast }) {
                               {mayLoanHw && (
                                 <Btn sm variant="secondary" onClick={async () => {
                                   try {
-                                    await api.post(`/loans/hardware/${l.hardwareId}/return`);
+                                    await api.post(`/loans/hardware-unit/${l.hardwareUnitId}/return`, {});
                                     setEmpLoans((prev) => prev.filter((x) => x.id !== l.id));
                                     toast("Hardware zurückgegeben");
                                   } catch (err) { toast(err?.message || "Rückgabe fehlgeschlagen"); }
@@ -712,6 +714,9 @@ function AssignHardwareModal({ employee, onClose, onAssigned, toast }) {
   const [search, setSearch]     = useState("");
   const [busyId, setBusyId]     = useState(null);
   const [onlyAvailable, setOnlyAvailable] = useState(true);
+  const [expandedHw, setExpandedHw] = useState(null);
+  const [units, setUnits] = useState([]);
+  const [unitsLoading, setUnitsLoading] = useState(false);
 
   useEffect(() => {
     api.get("/hardware?size=500")
@@ -721,16 +726,26 @@ function AssignHardwareModal({ employee, onClose, onAssigned, toast }) {
   }, []);
 
   const filtered = hardware
-    .filter((h) => !onlyAvailable || h.status === "AVAILABLE")
-    .filter((h) => `${h.name} ${h.assetTag} ${h.manufacturer || ""} ${h.model || ""}`.toLowerCase().includes(search.toLowerCase()));
+    .filter((h) => !onlyAvailable || (h.availableQuantity ?? 0) > 0)
+    .filter((h) => `${h.name} ${h.manufacturer || ""} ${h.model || ""}`.toLowerCase().includes(search.toLowerCase()));
 
-  const availableCount = hardware.filter((h) => h.status === "AVAILABLE").length;
+  const totalAvailable = hardware.reduce((sum, h) => sum + (h.availableQuantity ?? 0), 0);
 
-  const assign = async (hw) => {
-    if (hw.status !== "AVAILABLE") return;
-    setBusyId(hw.id);
+  const selectHardware = async (hw) => {
+    if ((hw.availableQuantity ?? 0) === 0) return;
+    setExpandedHw(hw);
+    setUnitsLoading(true);
     try {
-      await api.post(`/loans/hardware/${hw.id}/loan`, { employeeId: employee.id, returnDate: null, notes: null });
+      const all = await api.get(`/hardware/${hw.id}/units`);
+      setUnits((all || []).filter((u) => u.status === "AVAILABLE"));
+    } catch { toast?.("Geräte konnten nicht geladen werden"); setUnits([]); }
+    finally { setUnitsLoading(false); }
+  };
+
+  const assignUnit = async (unit) => {
+    setBusyId(unit.id);
+    try {
+      await api.post(`/loans/hardware-unit/${unit.id}/loan`, { employeeId: employee.id, returnDate: null, notes: null });
       onAssigned();
     } catch (err) {
       toast(err?.message || "Ausleihe fehlgeschlagen");
@@ -738,83 +753,145 @@ function AssignHardwareModal({ employee, onClose, onAssigned, toast }) {
     }
   };
 
-  const statusColor = (s) => s === "AVAILABLE" ? "#10b981" : s === "LOANED" ? "#f59e0b" : "#64748b";
-  const statusBg    = (s) => s === "AVAILABLE" ? "rgba(16,185,129,0.12)" : s === "LOANED" ? "rgba(245,158,11,0.12)" : "rgba(100,116,139,0.12)";
-  const statusLabel = (s) => s === "AVAILABLE" ? "Verfügbar" : s === "LOANED" ? "Ausgeliehen" : s;
-
   return (
     <Modal title={`Hardware zuweisen – ${employee.firstName} ${employee.lastName}`} onClose={onClose} width={620}>
-      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        <input
-          autoFocus
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Hardware suchen (Name, Asset-Tag, Hersteller) …"
-          style={{
-            flex: 1, padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
-            fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
-            fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box",
-          }}
-        />
-        <label style={{
-          display: "flex", alignItems: "center", gap: 6, padding: "0 12px",
-          borderRadius: "8px", border: "1px solid #334155", cursor: "pointer",
-          fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
-        }}>
-          <input type="checkbox" checked={onlyAvailable} onChange={(e) => setOnlyAvailable(e.target.checked)} />
-          Nur verfügbare
-        </label>
-      </div>
-
-      <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>
-        {availableCount} von {hardware.length} Geräten verfügbar
-      </div>
-
-      <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-        {loading ? (
-          <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>Lade …</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ color: "#64748b", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", padding: 20 }}>
-            {hardware.length === 0 ? "Noch keine Hardware erfasst" : onlyAvailable && availableCount === 0 ? "Alle Geräte sind ausgeliehen. Haken 'Nur verfügbare' entfernen, um die gesamte Liste zu sehen." : "Keine Treffer"}
+      {!expandedHw && (
+        <>
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Hardware suchen (Name, Hersteller, Modell) …"
+              style={{
+                flex: 1, padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+                fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
+                fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box",
+              }}
+            />
+            <label style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "0 12px",
+              borderRadius: "8px", border: "1px solid #334155", cursor: "pointer",
+              fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+            }}>
+              <input type="checkbox" checked={onlyAvailable} onChange={(e) => setOnlyAvailable(e.target.checked)} />
+              Nur mit Bestand
+            </label>
           </div>
-        ) : (
-          filtered.map((h) => {
-            const available = h.status === "AVAILABLE";
-            return (
-              <button
-                key={h.id}
-                onClick={() => assign(h)}
-                disabled={!available || busyId !== null}
-                title={available ? "Zuweisen" : `Nicht verfügbar (${statusLabel(h.status)})`}
-                style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
-                  background: busyId === h.id ? "rgba(99,102,241,0.1)" : "#1e293b",
-                  cursor: !available ? "not-allowed" : busyId !== null ? "wait" : "pointer",
-                  textAlign: "left", fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
-                  opacity: !available ? 0.45 : (busyId !== null && busyId !== h.id ? 0.4 : 1),
-                }}
-                onMouseEnter={(e) => { if (available && busyId === null) e.currentTarget.style.borderColor = "#6366f1"; }}
-                onMouseLeave={(e) => { if (available && busyId === null) e.currentTarget.style.borderColor = "#334155"; }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9" }}>{h.name}</div>
-                  <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
-                    {h.assetTag}{h.manufacturer ? ` · ${h.manufacturer}` : ""}{h.model ? ` ${h.model}` : ""}
+
+          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>
+            {totalAvailable} Geräte verfügbar in {hardware.length} Modellen
+          </div>
+
+          <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {loading ? (
+              <div style={{ color: "#64748b", fontSize: 13, textAlign: "center", padding: 20 }}>Lade …</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ color: "#64748b", fontSize: 13, textAlign: "center", padding: 20 }}>
+                {hardware.length === 0 ? "Noch keine Hardware erfasst" : "Keine Treffer"}
+              </div>
+            ) : (
+              filtered.map((h) => {
+                const av = h.availableQuantity ?? 0;
+                const total = h.totalQuantity ?? 0;
+                const hasAvail = av > 0;
+                return (
+                  <button
+                    key={h.id}
+                    onClick={() => selectHardware(h)}
+                    disabled={!hasAvail}
+                    title={hasAvail ? "Gerät wählen" : "Keine Einheiten verfügbar"}
+                    style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+                      background: "#1e293b",
+                      cursor: hasAvail ? "pointer" : "not-allowed",
+                      textAlign: "left", fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                      opacity: hasAvail ? 1 : 0.45,
+                    }}
+                    onMouseEnter={(e) => { if (hasAvail) e.currentTarget.style.borderColor = "#6366f1"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#334155"; }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#f1f5f9" }}>{h.name}</div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                        {h.manufacturer || "—"}{h.model ? ` · ${h.model}` : ""}
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: "4px 10px", borderRadius: "20px",
+                      background: hasAvail ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)",
+                      color: hasAvail ? "#10b981" : "#f59e0b",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      whiteSpace: "nowrap", marginLeft: 10,
+                    }}>
+                      {av} / {total}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
+
+      {expandedHw && (
+        <>
+          <div style={{ marginBottom: 14 }}>
+            <button
+              onClick={() => { setExpandedHw(null); setUnits([]); }}
+              style={{ background: "transparent", border: "none", color: "#a5b4fc", fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 8 }}
+            >← zurück zur Modell-Liste</button>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9" }}>{expandedHw.name}</div>
+            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+              {expandedHw.manufacturer || "—"}{expandedHw.model ? ` · ${expandedHw.model}` : ""} · Wähle ein konkretes Gerät:
+            </div>
+          </div>
+
+          <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            {unitsLoading ? (
+              <div style={{ color: "#64748b", fontSize: 13, textAlign: "center", padding: 20 }}>Lade …</div>
+            ) : units.length === 0 ? (
+              <div style={{ color: "#64748b", fontSize: 13, textAlign: "center", padding: 20 }}>
+                Keine verfügbaren Geräte
+              </div>
+            ) : (
+              units.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => assignUnit(u)}
+                  disabled={busyId !== null}
+                  style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+                    background: busyId === u.id ? "rgba(99,102,241,0.1)" : "#1e293b",
+                    cursor: busyId !== null ? "wait" : "pointer",
+                    textAlign: "left", fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                    opacity: busyId !== null && busyId !== u.id ? 0.4 : 1,
+                  }}
+                  onMouseEnter={(e) => { if (busyId === null) e.currentTarget.style.borderColor = "#6366f1"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#334155"; }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <code style={{ fontSize: 13, fontWeight: 500, color: "#a5b4fc", fontFamily: "'JetBrains Mono', monospace" }}>
+                      {u.assetTag}
+                    </code>
+                    {u.serialNumber && (
+                      <span style={{ fontSize: 11, color: "#64748b", marginLeft: 10 }}>
+                        SN: <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{u.serialNumber}</span>
+                      </span>
+                    )}
                   </div>
-                </div>
-                <span style={{
-                  fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: "20px",
-                  background: statusBg(h.status), color: statusColor(h.status),
-                  whiteSpace: "nowrap", marginLeft: 10,
-                }}>
-                  {statusLabel(h.status)}
-                </span>
-              </button>
-            );
-          })
-        )}
-      </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: "20px",
+                    background: "rgba(16,185,129,0.12)", color: "#10b981", whiteSpace: "nowrap",
+                  }}>Zuweisen</span>
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }
