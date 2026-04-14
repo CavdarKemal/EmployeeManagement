@@ -94,6 +94,17 @@ Neuer Abschnitt/Tab **„Geräte"**:
 - Button „Gerät hinzufügen" → Dialog für neue Unit
 - Inline-Bearbeiten/Löschen pro Zeile
 
+### Maske „Neue Hardware"
+Statt eines einzelnen Seriennummer-Feldes eine **dynamische Liste**:
+- Zeile mit Feldern „Seriennummer" + „Asset-Tag" (+ optional Kaufdatum, Garantie)
+- Button „+ Seriennummer hinzufügen" fügt neue Zeile hinzu
+- Button „×" pro Zeile zum Entfernen
+- Pro Zeile entsteht beim Speichern genau eine `HardwareUnit`
+- Anzahl Zeilen = initiale Stückzahl des Modells
+- Mindestens 1 Zeile erforderlich
+
+Backend-Endpunkt: `POST /api/hardware` akzeptiert im Request eine `units`-Liste; legt Modell + alle Units atomar an. Weitere Units können später auf der Hardware-Detailseite nachgepflegt werden.
+
 ### Loan-Dialog (Hardware ausleihen)
 1. Hardware-Modell wählen (Dropdown mit Modellen, die verfügbare Units haben)
 2. Konkrete Unit wählen (Dropdown der AVAILABLE Units des Modells mit Seriennummer + Asset-Tag)
