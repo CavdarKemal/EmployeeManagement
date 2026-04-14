@@ -1,6 +1,5 @@
 package com.employeemanagement.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -15,7 +14,6 @@ public class HardwareUnitDTO {
     private Long id;
     private Long hardwareId;
 
-    @NotBlank
     private String assetTag;
 
     private String serialNumber;
