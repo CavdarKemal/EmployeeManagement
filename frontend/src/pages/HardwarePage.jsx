@@ -131,7 +131,7 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
   const isEdit = Boolean(hardware?.id);
   const initial = hardware ?? {
     name: "", category: "LAPTOP", manufacturer: "", model: "", notes: "",
-    units: [{ assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
+    units: [{ serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
   };
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState({});
@@ -146,7 +146,7 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
 
   const addUnit = () => setForm((f) => ({
     ...f,
-    units: [...f.units, { assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
+    units: [...f.units, { serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
   }));
 
   const removeUnit = (idx) => setForm((f) => ({
@@ -157,12 +157,7 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
   const validate = () => {
     const e = {};
     if (!form.name) e.name = "Pflichtfeld";
-    if (!isEdit) {
-      if (!form.units?.length) e.units = "Mindestens ein Gerät erforderlich";
-      form.units?.forEach((u, i) => {
-        if (!u.assetTag) e[`unit_${i}_assetTag`] = "Asset-Tag erforderlich";
-      });
-    }
+    if (!isEdit && !form.units?.length) e.units = "Mindestens ein Gerät erforderlich";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -183,7 +178,6 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
         result = await api.put(`/hardware/${form.id}`, payload);
       } else {
         payload.units = form.units.map((u) => ({
-          assetTag: u.assetTag,
           serialNumber: u.serialNumber || null,
           purchaseDate: u.purchaseDate || null,
           warrantyUntil: u.warrantyUntil || null,
@@ -231,18 +225,16 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
             {form.units.map((u, i) => (
               <div key={i} style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
+                gridTemplateColumns: "2fr 1fr 1fr auto",
                 gap: 8,
                 padding: 10,
                 background: "#0f172a",
                 borderRadius: 8,
                 border: "1px solid #334155",
               }}>
-                <Input label="Asset-Tag *" value={u.assetTag}
-                       onChange={(e) => setUnit(i, "assetTag", e.target.value)}
-                       error={errors[`unit_${i}_assetTag`]} placeholder="HW-0001" />
                 <Input label="Seriennummer" value={u.serialNumber}
-                       onChange={(e) => setUnit(i, "serialNumber", e.target.value)} />
+                       onChange={(e) => setUnit(i, "serialNumber", e.target.value)}
+                       placeholder={`Gerät ${i + 1}`} />
                 <Input label="Kaufdatum" type="date" value={u.purchaseDate}
                        onChange={(e) => setUnit(i, "purchaseDate", e.target.value)} />
                 <Input label="Garantie bis" type="date" value={u.warrantyUntil}
@@ -281,7 +273,7 @@ function UnitManagementModal({ hardware, onClose, toast }) {
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [newUnit, setNewUnit] = useState({ assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" });
+  const [newUnit, setNewUnit] = useState({ serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" });
 
   const reload = () => {
     setLoading(true);
@@ -293,10 +285,8 @@ function UnitManagementModal({ hardware, onClose, toast }) {
   useEffect(() => { reload(); }, [hardware.id]);
 
   const addUnit = async () => {
-    if (!newUnit.assetTag) { toast?.("Asset-Tag erforderlich"); return; }
     try {
       await api.post(`/hardware/${hardware.id}/units`, {
-        assetTag: newUnit.assetTag,
         serialNumber: newUnit.serialNumber || null,
         purchaseDate: newUnit.purchaseDate || null,
         warrantyUntil: newUnit.warrantyUntil || null,
@@ -304,7 +294,7 @@ function UnitManagementModal({ hardware, onClose, toast }) {
         status: "AVAILABLE",
       });
       setAdding(false);
-      setNewUnit({ assetTag: "", serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" });
+      setNewUnit({ serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" });
       reload();
       toast?.("Gerät hinzugefügt");
     } catch (err) { toast?.(err?.message || "Anlegen fehlgeschlagen"); }
@@ -360,8 +350,7 @@ function UnitManagementModal({ hardware, onClose, toast }) {
           )}
           {adding && (
             <div style={{ marginTop: 14, padding: 12, background: "#0f172a", borderRadius: 8, border: "1px solid #334155" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-                <Input label="Asset-Tag *" value={newUnit.assetTag} onChange={(e) => setNewUnit({ ...newUnit, assetTag: e.target.value })} />
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8 }}>
                 <Input label="Seriennummer" value={newUnit.serialNumber} onChange={(e) => setNewUnit({ ...newUnit, serialNumber: e.target.value })} />
                 <Input label="Kaufdatum" type="date" value={newUnit.purchaseDate} onChange={(e) => setNewUnit({ ...newUnit, purchaseDate: e.target.value })} />
                 <Input label="Garantie bis" type="date" value={newUnit.warrantyUntil} onChange={(e) => setNewUnit({ ...newUnit, warrantyUntil: e.target.value })} />

@@ -50,13 +50,14 @@ public class HardwareService {
 
     public HardwareDTO create(HardwareDTO dto) {
         if (dto.getUnits() == null || dto.getUnits().isEmpty())
-            throw new BusinessException("Mindestens ein Gerät (Seriennummer/Asset-Tag) ist erforderlich");
+            throw new BusinessException("Mindestens ein Gerät ist erforderlich");
 
         Set<String> tags = new HashSet<>();
         Set<String> serials = new HashSet<>();
         for (HardwareUnitDTO u : dto.getUnits()) {
-            if (u.getAssetTag() == null || u.getAssetTag().isBlank())
-                throw new BusinessException("Asset-Tag darf nicht leer sein");
+            if (u.getAssetTag() == null || u.getAssetTag().isBlank()) {
+                u.setAssetTag(nextAssetTag(tags));
+            }
             if (!tags.add(u.getAssetTag()))
                 throw new BusinessException("Doppelter Asset-Tag in Anfrage: " + u.getAssetTag());
             if (u.getSerialNumber() != null && !u.getSerialNumber().isBlank() && !serials.add(u.getSerialNumber()))
@@ -76,6 +77,18 @@ public class HardwareService {
         Hardware saved = repo.save(hw);
         log.info("Hardware angelegt: {} mit {} Gerät(en)", saved.getName(), units.size());
         return mapper.toDTO(saved);
+    }
+
+    private String nextAssetTag(Set<String> reservedInRequest) {
+        long count = unitRepo.count();
+        int n = (int) count + 1;
+        while (true) {
+            String candidate = String.format("HW-%04d", n);
+            if (!reservedInRequest.contains(candidate) && !unitRepo.existsByAssetTag(candidate)) {
+                return candidate;
+            }
+            n++;
+        }
     }
 
     public HardwareDTO update(Long id, HardwareDTO dto) {

@@ -39,11 +39,24 @@ public class HardwareUnitService {
     public HardwareUnitDTO create(Long hardwareId, HardwareUnitDTO dto) {
         Hardware hw = hardwareRepo.findById(hardwareId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hardware", hardwareId));
+        if (dto.getAssetTag() == null || dto.getAssetTag().isBlank()) {
+            dto.setAssetTag(nextAssetTag());
+        }
         assertAssetTagFree(dto.getAssetTag(), null);
         assertSerialFree(dto.getSerialNumber(), null);
         HardwareUnit saved = unitRepo.save(mapper.toEntity(dto, hw));
         log.info("HardwareUnit angelegt: {} (Hardware {})", saved.getAssetTag(), hardwareId);
         return mapper.toDTO(saved);
+    }
+
+    private String nextAssetTag() {
+        long count = unitRepo.count();
+        int n = (int) count + 1;
+        while (true) {
+            String candidate = String.format("HW-%04d", n);
+            if (!unitRepo.existsByAssetTag(candidate)) return candidate;
+            n++;
+        }
     }
 
     public HardwareUnitDTO update(Long unitId, HardwareUnitDTO dto) {
