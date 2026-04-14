@@ -4,6 +4,8 @@
 **Server:** Hetzner CX23 — 2 vCPU, 4 GB RAM, 40 GB SSD, ~4,75 €/Monat  
 **Standort:** Nürnberg, Deutschland  
 
+> **Automatische Benachrichtigung:** Bei jedem Push auf `main` schickt eine GitHub Action eine Mail an alle Admins mit Commit-Info und dieser Deployment-Anleitung. Einrichtung + Details: siehe [`DEPLOY_NOTIFICATIONS.md`](./DEPLOY_NOTIFICATIONS.md).
+
 ---
 
 ## Was ist ein Deployment überhaupt?
