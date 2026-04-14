@@ -3,9 +3,11 @@ package com.employeemanagement.service;
 import com.employeemanagement.dto.ImportResultDTO;
 import com.employeemanagement.model.Employee;
 import com.employeemanagement.model.Hardware;
+import com.employeemanagement.model.HardwareUnit;
 import com.employeemanagement.model.Software;
 import com.employeemanagement.repository.EmployeeRepository;
 import com.employeemanagement.repository.HardwareRepository;
+import com.employeemanagement.repository.HardwareUnitRepository;
 import com.employeemanagement.repository.SoftwareRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,7 @@ public class CsvImportService {
 
     private final EmployeeRepository employeeRepo;
     private final HardwareRepository hardwareRepo;
+    private final HardwareUnitRepository unitRepo;
     private final SoftwareRepository softwareRepo;
 
     private TransactionTemplate txPerRow;
@@ -113,45 +116,59 @@ public class CsvImportService {
         String assetTag = row.get("Asset-Tag");
         if (assetTag == null || assetTag.isBlank()) { result.getErrors().add("Zeile ohne Asset-Tag übersprungen"); result.setSkipped(result.getSkipped() + 1); return; }
 
-        // Existierend? → Aktualisieren
-        var existingHw = hardwareRepo.findByAssetTag(assetTag);
-        if (existingHw.isPresent()) {
-            Hardware hw = existingHw.get();
-            hw.setName(row.getOrDefault("Name", hw.getName()));
-            hw.setCategory(row.getOrDefault("Kategorie", hw.getCategory()));
-            hw.setManufacturer(row.get("Hersteller"));
-            hw.setModel(row.get("Modell"));
-            if (row.containsKey("Seriennummer")) hw.setSerialNumber(row.get("Seriennummer"));
-            if (row.containsKey("Status")) hw.setStatus(parseHwStatus(row.get("Status")));
-            if (row.containsKey("Kaufpreis")) hw.setPurchasePrice(parseBigDecimal(row.get("Kaufpreis")));
-            if (row.containsKey("Garantie bis")) hw.setWarrantyUntil(parseDate(row.get("Garantie bis")));
-            hw.setNotes(row.get("Notizen"));
-            hardwareRepo.save(hw);
+        String name = row.getOrDefault("Name", "").trim();
+        String manufacturer = row.get("Hersteller");
+        String model = row.get("Modell");
+        String category = row.get("Kategorie");
+        String serial = row.get("Seriennummer");
+
+        // Existiert bereits eine Unit mit diesem Asset-Tag? → aktualisieren
+        HardwareUnit existingUnit = unitRepo.findAll().stream()
+                .filter(u -> assetTag.equals(u.getAssetTag()))
+                .findFirst().orElse(null);
+        if (existingUnit != null) {
+            if (row.containsKey("Seriennummer")) existingUnit.setSerialNumber(emptyToNull(serial));
+            if (row.containsKey("Status")) existingUnit.setStatus(parseUnitStatus(row.get("Status")));
+            if (row.containsKey("Kaufpreis")) existingUnit.setPurchasePrice(parseBigDecimal(row.get("Kaufpreis")));
+            if (row.containsKey("Garantie bis")) existingUnit.setWarrantyUntil(parseDate(row.get("Garantie bis")));
+            if (row.containsKey("Notizen")) existingUnit.setNotes(row.get("Notizen"));
+            unitRepo.save(existingUnit);
             result.setImported(result.getImported() + 1);
             return;
         }
 
-        // Pre-check: Doppelte Seriennummer in DB?
-        String serial = row.get("Seriennummer");
-        if (serial != null && !serial.isBlank() && hardwareRepo.existsBySerialNumber(serial)) {
+        if (serial != null && !serial.isBlank() && unitRepo.existsBySerialNumber(serial)) {
             throw new IllegalStateException("Seriennummer bereits vergeben: " + serial);
         }
 
-        Hardware hw = Hardware.builder()
+        // Passendes Hardware-Modell finden oder neu anlegen
+        Hardware hw = hardwareRepo.findAll().stream()
+                .filter(h -> Objects.equals(h.getName(), name)
+                          && Objects.equals(h.getManufacturer(), manufacturer)
+                          && Objects.equals(h.getModel(), model))
+                .findFirst()
+                .orElseGet(() -> hardwareRepo.save(Hardware.builder()
+                        .name(name)
+                        .category(category)
+                        .manufacturer(manufacturer)
+                        .model(model)
+                        .notes(row.get("Notizen"))
+                        .build()));
+
+        HardwareUnit unit = HardwareUnit.builder()
+                .hardware(hw)
                 .assetTag(assetTag)
-                .name(row.getOrDefault("Name", ""))
-                .category(row.get("Kategorie"))
-                .manufacturer(row.get("Hersteller"))
-                .model(row.get("Modell"))
-                .serialNumber(serial)
-                .status(parseHwStatus(row.get("Status")))
+                .serialNumber(emptyToNull(serial))
+                .status(parseUnitStatus(row.get("Status")))
                 .purchasePrice(parseBigDecimal(row.get("Kaufpreis")))
                 .warrantyUntil(parseDate(row.get("Garantie bis")))
                 .notes(row.get("Notizen"))
                 .build();
-        hardwareRepo.save(hw);
+        unitRepo.save(unit);
         result.setImported(result.getImported() + 1);
     }
+
+    private String emptyToNull(String s) { return (s == null || s.isBlank()) ? null : s; }
 
     public ImportResultDTO importSoftware(MultipartFile file) {
         return processFile(file, (headers, values, result) -> runInTx(() -> importSoftwareRow(headers, values, result)));
@@ -300,9 +317,9 @@ public class CsvImportService {
         return cur.getMessage() != null ? cur.getMessage() : t.getClass().getSimpleName();
     }
 
-    private Hardware.HardwareStatus parseHwStatus(String val) {
-        if (val == null || val.isBlank()) return Hardware.HardwareStatus.AVAILABLE;
-        try { return Hardware.HardwareStatus.valueOf(val.toUpperCase()); }
-        catch (Exception e) { return Hardware.HardwareStatus.AVAILABLE; }
+    private HardwareUnit.HardwareUnitStatus parseUnitStatus(String val) {
+        if (val == null || val.isBlank()) return HardwareUnit.HardwareUnitStatus.AVAILABLE;
+        try { return HardwareUnit.HardwareUnitStatus.valueOf(val.toUpperCase()); }
+        catch (Exception e) { return HardwareUnit.HardwareUnitStatus.AVAILABLE; }
     }
 }

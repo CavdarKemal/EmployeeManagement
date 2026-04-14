@@ -1,8 +1,9 @@
 package com.employeemanagement.controller;
 
-import com.employeemanagement.model.Hardware;
+import com.employeemanagement.model.HardwareUnit;
 import com.employeemanagement.repository.EmployeeRepository;
 import com.employeemanagement.repository.HardwareRepository;
+import com.employeemanagement.repository.HardwareUnitRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class BatchController {
 
     private final EmployeeRepository empRepo;
     private final HardwareRepository hwRepo;
+    private final HardwareUnitRepository unitRepo;
 
     @PostMapping("/employees/deactivate")
     @Operation(summary = "Mehrere Mitarbeiter deaktivieren")
@@ -53,32 +55,34 @@ public class BatchController {
         return ResponseEntity.ok(Map.of("updated", count));
     }
 
-    @PostMapping("/hardware/status")
-    @Operation(summary = "Status für mehrere Hardware-Assets ändern")
+    @PostMapping("/hardware-units/status")
+    @Operation(summary = "Status für mehrere Geräte (Units) ändern")
     @PreAuthorize("hasAnyRole('ADMIN','IT')")
-    public ResponseEntity<Map<String, Integer>> changeHardwareStatus(
+    public ResponseEntity<Map<String, Integer>> changeUnitStatus(
             @RequestBody Map<String, Object> request) {
         @SuppressWarnings("unchecked")
         List<Integer> ids = (List<Integer>) request.get("ids");
         String status = (String) request.get("status");
-        Hardware.HardwareStatus hwStatus = Hardware.HardwareStatus.valueOf(status);
+        HardwareUnit.HardwareUnitStatus unitStatus = HardwareUnit.HardwareUnitStatus.valueOf(status);
         int count = 0;
         for (Integer id : ids) {
-            hwRepo.findById(id.longValue()).ifPresent(hw -> { hw.setStatus(hwStatus); hwRepo.save(hw); });
+            unitRepo.findById(id.longValue()).ifPresent(u -> { u.setStatus(unitStatus); unitRepo.save(u); });
             count++;
         }
-        log.info("Batch: {} Hardware → Status {}", count, status);
+        log.info("Batch: {} Geräte → Status {}", count, status);
         return ResponseEntity.ok(Map.of("updated", count));
     }
 
     @PostMapping("/hardware/delete")
-    @Operation(summary = "Mehrere Hardware-Assets löschen")
+    @Operation(summary = "Mehrere Hardware-Modelle löschen (nur wenn keine Unit ausgeliehen)")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Integer>> deleteHardware(@RequestBody List<Long> ids) {
         int count = 0;
         for (Long id : ids) {
             hwRepo.findById(id).ifPresent(hw -> {
-                if (hw.getStatus() != Hardware.HardwareStatus.LOANED) { hwRepo.delete(hw); }
+                boolean anyLoaned = hw.getUnits().stream()
+                        .anyMatch(u -> u.getStatus() == HardwareUnit.HardwareUnitStatus.LOANED);
+                if (!anyLoaned) { hwRepo.delete(hw); }
             });
             count++;
         }

@@ -58,19 +58,28 @@ public class NotificationService {
 
     public void checkWarrantyExpiration() {
         LocalDate threshold = LocalDate.now().plusDays(warrantyDays);
-        List<Hardware> expiring = hardwareRepo.findWarrantyExpiredBefore(threshold);
+        List<Hardware> models = hardwareRepo.findWithWarrantyExpiredBefore(threshold);
+        if (models.isEmpty()) return;
 
-        if (expiring.isEmpty()) return;
-
-        String body = expiring.stream()
-                .map(hw -> String.format("  - %s (%s) — Garantie bis %s", hw.getName(), hw.getAssetTag(), hw.getWarrantyUntil()))
-                .collect(Collectors.joining("\n"));
+        StringBuilder sb = new StringBuilder();
+        int unitCount = 0;
+        for (Hardware hw : models) {
+            for (var u : hw.getUnits()) {
+                if (u.getWarrantyUntil() != null && u.getWarrantyUntil().isBefore(threshold)
+                        && u.getStatus() != com.employeemanagement.model.HardwareUnit.HardwareUnitStatus.RETIRED) {
+                    sb.append(String.format("  - %s (%s) — Garantie bis %s%n",
+                            hw.getName(), u.getAssetTag(), u.getWarrantyUntil()));
+                    unitCount++;
+                }
+            }
+        }
+        if (unitCount == 0) return;
 
         sendMail(
-                "Garantie-Warnung: " + expiring.size() + " Geräte",
-                "Folgende Geräte haben eine ablaufende oder abgelaufene Garantie:\n\n" + body
+                "Garantie-Warnung: " + unitCount + " Geräte",
+                "Folgende Geräte haben eine ablaufende oder abgelaufene Garantie:\n\n" + sb.toString()
         );
-        log.info("Garantie-Warnung gesendet: {} Geräte", expiring.size());
+        log.info("Garantie-Warnung gesendet: {} Geräte", unitCount);
     }
 
     public void checkLicenseRenewal() {
@@ -100,8 +109,8 @@ public class NotificationService {
         // A) Sammel-Mail an Admin
         String summary = due.stream()
                 .map(l -> String.format("  - %s (%s) — Mitarbeiter: %s %s — Rückgabe bis %s",
-                        l.getHardware().getName(),
-                        l.getHardware().getAssetTag(),
+                        l.getHardwareUnit().getHardware().getName(),
+                        l.getHardwareUnit().getAssetTag(),
                         l.getEmployee().getFirstName(),
                         l.getEmployee().getLastName(),
                         l.getReturnDate()))
@@ -123,7 +132,7 @@ public class NotificationService {
             LocalDate returnBy = loan.getReturnDate();
             boolean overdue = returnBy.isBefore(LocalDate.now());
             String subject = overdue
-                    ? "Überfällige Hardware-Rückgabe: " + loan.getHardware().getName()
+                    ? "Überfällige Hardware-Rückgabe: " + loan.getHardwareUnit().getHardware().getName()
                     : "Erinnerung: Hardware-Rückgabe am " + returnBy;
 
             String body = String.format(
@@ -136,8 +145,8 @@ public class NotificationService {
                     "Bitte gib das Gerät rechtzeitig bei der IT zurück.",
                     loan.getEmployee().getFirstName(),
                     overdue ? "Mahnung" : "Erinnerung",
-                    loan.getHardware().getName(),
-                    loan.getHardware().getAssetTag(),
+                    loan.getHardwareUnit().getHardware().getName(),
+                    loan.getHardwareUnit().getAssetTag(),
                     loan.getLoanDate(),
                     overdue ? "war fällig am" : "bis",
                     returnBy
