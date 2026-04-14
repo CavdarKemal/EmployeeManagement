@@ -14,6 +14,7 @@ import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { canWriteSoftware, canAssignSoftware, canImport } from "../utils/permissions.js";
+import { useSortable, SortButton } from "../hooks/useSortable.js";
 
 const CAT_EMOJI = { PRODUCTIVITY: "📊", DEV_TOOLS: "🛠️", DESIGN: "🎨", OS: "💾" };
 
@@ -147,8 +148,10 @@ function SoftwarePage({ toast }) {
     return matchSearch && matchCat;
   });
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
+  const { sortedData, sortConfig, requestSort } = useSortable(filtered, { key: "name", direction: "asc" });
+
+  const totalPages = Math.ceil(sortedData.length / pageSize);
+  const paged = sortedData.slice(page * pageSize, (page + 1) * pageSize);
 
   if (loading) return <Spinner text="Software laden …" />;
 
@@ -203,6 +206,17 @@ function SoftwarePage({ toast }) {
           { key: "renewalDate", label: "Erneuerung" }, { key: "notes", label: "Notizen" },
         ], "Software")}>CSV Export</Btn>
         {mayWrite && <Btn onClick={() => setShowForm(true)}>＋ Software</Btn>}
+      </div>
+
+      {/* Sort Buttons */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>Sortieren:</span>
+        <SortButton label="Name" sortKey="name" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Hersteller" sortKey="vendor" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Kategorie" sortKey="category" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Lizenzen" sortKey="totalLicenses" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Kosten" sortKey="costPerLicense" sortConfig={sortConfig} onSort={requestSort} />
+        <SortButton label="Erneuerung" sortKey="renewalDate" sortConfig={sortConfig} onSort={requestSort} />
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
