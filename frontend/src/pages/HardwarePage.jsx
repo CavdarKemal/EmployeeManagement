@@ -14,7 +14,7 @@ import Pagination from "../components/Pagination.jsx";
 import ImportDialog from "../components/ImportDialog.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { canWriteHardware, canDeleteHardware, canLoanHardware, canImport } from "../utils/permissions.js";
-import { useSortable, SortButton } from "../hooks/useSortable.js";
+import { useSortable, SortButton } from "../hooks/useSortable.jsx";
 
 const FILTER_LABELS = {
   ALL:         "Alle",
