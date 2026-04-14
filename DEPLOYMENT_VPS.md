@@ -440,7 +440,7 @@ NOTIFICATION_EMAIL=kemal@cavdar.de
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USERNAME=kemal@cavdar.de
-MAIL_PASSWORD=abcd efgh ijkl mnop    # ← App-Passwort von Schritt 1 (ohne Leerzeichen)
+MAIL_PASSWORD=tgix hyko knho esyq
 ```
 
 ### 3. Backend neu starten
