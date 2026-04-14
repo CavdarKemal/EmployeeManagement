@@ -1,0 +1,53 @@
+name: Notify admins on push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Collect commit info
+        id: info
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "author=$(git log -1 --pretty=format:'%an <%ae>')" >> "$GITHUB_OUTPUT"
+          {
+            echo "message<<EOF"
+            git log -1 --pretty=format:'%s'
+            echo
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+          echo "url=${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: POST to deploy-notify endpoint
+        env:
+          NOTIFY_URL:    ${{ secrets.DEPLOY_NOTIFY_URL }}
+          NOTIFY_SECRET: ${{ secrets.DEPLOY_NOTIFY_SECRET }}
+          SHA:     ${{ steps.info.outputs.sha }}
+          AUTHOR:  ${{ steps.info.outputs.author }}
+          MESSAGE: ${{ steps.info.outputs.message }}
+          URL:     ${{ steps.info.outputs.url }}
+        run: |
+          if [ -z "$NOTIFY_URL" ] || [ -z "$NOTIFY_SECRET" ]; then
+            echo "::warning::DEPLOY_NOTIFY_URL oder DEPLOY_NOTIFY_SECRET nicht gesetzt — skip"
+            exit 0
+          fi
+          payload=$(jq -n \
+            --arg c "$SHA" --arg a "$AUTHOR" --arg m "$MESSAGE" --arg u "$URL" \
+            '{commit:$c, author:$a, message:$m, url:$u}')
+          echo "Payload: $payload"
+          http_code=$(curl -s -o /tmp/resp -w "%{http_code}" \
+            -X POST "$NOTIFY_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Deploy-Secret: $NOTIFY_SECRET" \
+            -d "$payload")
+          echo "HTTP $http_code"
+          cat /tmp/resp
+          if [ "$http_code" != "200" ]; then exit 1; fi
