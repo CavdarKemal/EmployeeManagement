@@ -24,8 +24,8 @@ public class Loan {
     private Employee employee;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hardware_id", nullable = false)
-    private Hardware hardware;
+    @JoinColumn(name = "hardware_unit_id", nullable = false)
+    private HardwareUnit hardwareUnit;
 
     @Column(name = "loan_date", nullable = false)
     @Builder.Default

@@ -65,18 +65,23 @@ public class PdfReportService {
         PdfDocument pdf = new PdfDocument(new PdfWriter(baos));
         Document doc = new Document(pdf);
 
-        addTitle(doc, "Hardware-Inventar", hardware.size() + " Geräte");
+        int totalUnits = hardware.stream().mapToInt(h -> h.getUnits() != null ? h.getUnits().size() : 0).sum();
+        addTitle(doc, "Hardware-Inventar", totalUnits + " Geräte in " + hardware.size() + " Modell(en)");
 
         Table table = new Table(UnitValue.createPercentArray(new float[]{14, 22, 14, 14, 14, 12, 10})).useAllAvailableWidth();
-        addHeaderRow(table, "Asset-Tag", "Name", "Hersteller", "Kategorie", "Status", "Garantie", "Preis");
+        addHeaderRow(table, "Asset-Tag", "Modell", "Hersteller", "Kategorie", "Status", "Garantie", "Preis");
 
-        for (int i = 0; i < hardware.size(); i++) {
-            Hardware h = hardware.get(i);
-            boolean stripe = i % 2 == 1;
-            String warranty = h.getWarrantyUntil() != null ? h.getWarrantyUntil().format(DE_DATE) : "";
-            String price = h.getPurchasePrice() != null ? h.getPurchasePrice().toPlainString() + " €" : "";
-            addRow(table, stripe, h.getAssetTag(), h.getName(), nvl(h.getManufacturer()),
-                    nvl(h.getCategory()), h.getStatus() != null ? h.getStatus().name() : "", warranty, price);
+        int row = 0;
+        for (Hardware h : hardware) {
+            if (h.getUnits() == null) continue;
+            for (com.employeemanagement.model.HardwareUnit u : h.getUnits()) {
+                boolean stripe = row % 2 == 1;
+                String warranty = u.getWarrantyUntil() != null ? u.getWarrantyUntil().format(DE_DATE) : "";
+                String price = u.getPurchasePrice() != null ? u.getPurchasePrice().toPlainString() + " €" : "";
+                addRow(table, stripe, u.getAssetTag(), h.getName(), nvl(h.getManufacturer()),
+                        nvl(h.getCategory()), u.getStatus() != null ? u.getStatus().name() : "", warranty, price);
+                row++;
+            }
         }
         doc.add(table);
         addFooter(doc);

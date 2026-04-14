@@ -5,10 +5,10 @@ import com.employeemanagement.exception.BusinessException;
 import com.employeemanagement.exception.ResourceNotFoundException;
 import com.employeemanagement.mapper.LoanMapper;
 import com.employeemanagement.model.Employee;
-import com.employeemanagement.model.Hardware;
+import com.employeemanagement.model.HardwareUnit;
 import com.employeemanagement.model.Loan;
 import com.employeemanagement.repository.EmployeeRepository;
-import com.employeemanagement.repository.HardwareRepository;
+import com.employeemanagement.repository.HardwareUnitRepository;
 import com.employeemanagement.repository.LoanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,54 +27,54 @@ public class LoanService {
 
     private final LoanRepository loanRepo;
     private final EmployeeRepository employeeRepo;
-    private final HardwareRepository hardwareRepo;
+    private final HardwareUnitRepository unitRepo;
     private final LoanMapper loanMapper;
 
-    public LoanDTO loanHardware(Long employeeId, Long hardwareId, LocalDate returnDate, String notes) {
+    public LoanDTO loanHardwareUnit(Long employeeId, Long hardwareUnitId, LocalDate returnDate, String notes) {
         Employee employee = employeeRepo.findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mitarbeiter", employeeId));
 
-        Hardware hardware = hardwareRepo.findById(hardwareId)
-                .orElseThrow(() -> new ResourceNotFoundException("Hardware", hardwareId));
+        HardwareUnit unit = unitRepo.findById(hardwareUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("HardwareUnit", hardwareUnitId));
 
-        // Prüfen ob Hardware verfügbar ist
-        if (hardware.getStatus() != Hardware.HardwareStatus.AVAILABLE)
-            throw new BusinessException("Hardware ist nicht verfügbar. Status: " + hardware.getStatus());
+        if (unit.getStatus() != HardwareUnit.HardwareUnitStatus.AVAILABLE)
+            throw new BusinessException("Gerät ist nicht verfügbar. Status: " + unit.getStatus());
 
-        // Aktive Ausleihe prüfen (Doppelschutz)
-        loanRepo.findActiveLoanByHardwareId(hardwareId).ifPresent(l -> {
-            throw new BusinessException("Hardware ist bereits ausgeliehen");
+        loanRepo.findActiveLoanByHardwareUnitId(hardwareUnitId).ifPresent(l -> {
+            throw new BusinessException("Gerät ist bereits ausgeliehen");
         });
 
         Loan loan = Loan.builder()
                 .employee(employee)
-                .hardware(hardware)
+                .hardwareUnit(unit)
                 .loanDate(LocalDate.now())
                 .returnDate(returnDate)
                 .notes(notes)
                 .build();
 
-        hardware.setStatus(Hardware.HardwareStatus.LOANED);
-        hardwareRepo.save(hardware);
+        unit.setStatus(HardwareUnit.HardwareUnitStatus.LOANED);
+        unitRepo.save(unit);
 
         Loan saved = loanRepo.save(loan);
-        log.info("Hardware ausgeliehen: {} → {}", hardware.getAssetTag(), employee.getEmail());
+        log.info("Gerät ausgeliehen: {} → {}", unit.getAssetTag(), employee.getEmail());
         return loanMapper.toDTO(saved);
     }
 
-    public LoanDTO returnHardware(Long hardwareId, String notes) {
-        Loan loan = loanRepo.findActiveLoanByHardwareId(hardwareId)
-                .orElseThrow(() -> new BusinessException("Keine aktive Ausleihe für Hardware: " + hardwareId));
+    public LoanDTO returnHardwareUnit(Long hardwareUnitId, String notes) {
+        Loan loan = loanRepo.findActiveLoanByHardwareUnitId(hardwareUnitId)
+                .orElseThrow(() -> new BusinessException("Keine aktive Ausleihe für Gerät: " + hardwareUnitId));
 
         loan.setReturnedAt(LocalDateTime.now());
-        if (notes != null) loan.setNotes(notes);
+        if (notes != null && !notes.isBlank()) {
+            loan.setNotes((loan.getNotes() == null ? "" : loan.getNotes() + "\n") + notes);
+        }
 
-        Hardware hardware = loan.getHardware();
-        hardware.setStatus(Hardware.HardwareStatus.AVAILABLE);
-        hardwareRepo.save(hardware);
+        HardwareUnit unit = loan.getHardwareUnit();
+        unit.setStatus(HardwareUnit.HardwareUnitStatus.AVAILABLE);
+        unitRepo.save(unit);
 
         Loan saved = loanRepo.save(loan);
-        log.info("Hardware zurückgegeben: {}", hardware.getAssetTag());
+        log.info("Gerät zurückgegeben: {}", unit.getAssetTag());
         return loanMapper.toDTO(saved);
     }
 

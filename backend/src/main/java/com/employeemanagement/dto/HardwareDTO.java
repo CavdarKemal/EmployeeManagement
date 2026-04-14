@@ -1,11 +1,12 @@
 package com.employeemanagement.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -16,20 +17,20 @@ public class HardwareDTO {
     private Long id;
 
     @NotBlank
-    private String assetTag;
-
-    @NotBlank
     private String name;
 
     private String category;
     private String manufacturer;
     private String model;
-    private String serialNumber;
-    private LocalDate purchaseDate;
-    private BigDecimal purchasePrice;
-    private LocalDate warrantyUntil;
-    private String status;
     private String notes;
+
+    private Integer totalQuantity;
+    private Integer availableQuantity;
+
+    @Valid
+    @Builder.Default
+    private List<HardwareUnitDTO> units = new ArrayList<>();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

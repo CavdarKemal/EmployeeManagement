@@ -10,8 +10,8 @@ import java.util.Optional;
 
 public interface LoanRepository extends JpaRepository<Loan, Long> {
 
-    @Query("SELECT l FROM Loan l WHERE l.hardware.id = :hwId AND l.returnedAt IS NULL")
-    Optional<Loan> findActiveLoanByHardwareId(@Param("hwId") Long hardwareId);
+    @Query("SELECT l FROM Loan l WHERE l.hardwareUnit.id = :unitId AND l.returnedAt IS NULL")
+    Optional<Loan> findActiveLoanByHardwareUnitId(@Param("unitId") Long hardwareUnitId);
 
     @Query("SELECT l FROM Loan l WHERE l.employee.id = :empId AND l.returnedAt IS NULL")
     List<Loan> findActiveByEmployeeId(@Param("empId") Long employeeId);

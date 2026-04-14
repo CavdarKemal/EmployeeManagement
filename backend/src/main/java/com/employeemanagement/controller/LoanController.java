@@ -20,23 +20,24 @@ public class LoanController {
 
     private final LoanService loanService;
 
-    @PostMapping("/hardware/{hardwareId}/loan")
-    @Operation(summary = "Hardware ausleihen")
-    public ResponseEntity<LoanDTO> loanHardware(
-            @PathVariable Long hardwareId,
+    @PostMapping("/hardware-unit/{unitId}/loan")
+    @Operation(summary = "Gerät (HardwareUnit) ausleihen")
+    public ResponseEntity<LoanDTO> loanHardwareUnit(
+            @PathVariable Long unitId,
             @Valid @RequestBody LoanRequestDTO request) {
         return ResponseEntity.ok(
-                loanService.loanHardware(
-                        request.getEmployeeId(), hardwareId,
+                loanService.loanHardwareUnit(
+                        request.getEmployeeId(), unitId,
                         request.getReturnDate(), request.getNotes()));
     }
 
-    @PostMapping("/hardware/{hardwareId}/return")
-    @Operation(summary = "Hardware zurückgeben")
-    public ResponseEntity<LoanDTO> returnHardware(
-            @PathVariable Long hardwareId,
-            @RequestParam(required = false) String notes) {
-        return ResponseEntity.ok(loanService.returnHardware(hardwareId, notes));
+    @PostMapping("/hardware-unit/{unitId}/return")
+    @Operation(summary = "Gerät zurückgeben")
+    public ResponseEntity<LoanDTO> returnHardwareUnit(
+            @PathVariable Long unitId,
+            @RequestBody(required = false) ReturnRequest body) {
+        String notes = body != null ? body.notes() : null;
+        return ResponseEntity.ok(loanService.returnHardwareUnit(unitId, notes));
     }
 
     @GetMapping("/employees/{employeeId}/active")
@@ -50,4 +51,6 @@ public class LoanController {
     public ResponseEntity<List<LoanDTO>> getLoanHistory(@PathVariable Long employeeId) {
         return ResponseEntity.ok(loanService.getLoanHistoryForEmployee(employeeId));
     }
+
+    public record ReturnRequest(String notes) {}
 }
