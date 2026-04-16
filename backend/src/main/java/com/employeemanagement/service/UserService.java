@@ -6,6 +6,8 @@ import com.employeemanagement.dto.UserDTO;
 import com.employeemanagement.exception.BusinessException;
 import com.employeemanagement.exception.ResourceNotFoundException;
 import com.employeemanagement.model.AppUser;
+import com.employeemanagement.model.Employee;
+import com.employeemanagement.repository.EmployeeRepository;
 import com.employeemanagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -26,6 +29,7 @@ import java.time.LocalDateTime;
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepo;
+    private final EmployeeRepository employeeRepo;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -42,23 +46,115 @@ public class UserService implements UserDetailsService {
     public UserDTO createUser(CreateUserDTO dto) {
         if (userRepo.existsByEmail(dto.getEmail()))
             throw new BusinessException("E-Mail bereits vergeben: " + dto.getEmail());
+        if (employeeRepo.existsByEmail(dto.getEmail()))
+            throw new BusinessException("E-Mail bereits als Mitarbeiter vorhanden: " + dto.getEmail());
 
+        // Automatisch EMP-Nummer generieren
+        String empNumber = generateNextEmployeeNumber();
+
+        // Namen aus displayName extrahieren (Vorname Nachname)
+        String[] nameParts = dto.getDisplayName().trim().split("\\s+", 2);
+        String firstName = nameParts[0];
+        String lastName = nameParts.length > 1 ? nameParts[1] : nameParts[0];
+
+        // Mitarbeiter anlegen
+        Employee employee = Employee.builder()
+                .employeeNumber(empNumber)
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(dto.getEmail())
+                .hireDate(LocalDate.now())
+                .department(mapRoleToDepartment(dto.getRole()))
+                .position(mapRoleToPosition(dto.getRole()))
+                .build();
+        Employee savedEmployee = employeeRepo.save(employee);
+
+        // Benutzer anlegen und mit Mitarbeiter verknüpfen
         AppUser user = AppUser.builder()
                 .email(dto.getEmail())
                 .displayName(dto.getDisplayName())
                 .passwordHash(passwordEncoder.encode(dto.getInitialPassword()))
                 .role(dto.getRole())
                 .passwordChangedAt(LocalDateTime.now())
+                .linkedEmployee(savedEmployee)
                 .build();
 
         AppUser saved = userRepo.save(user);
-        log.info("Benutzer angelegt: {} mit Rolle {}", saved.getEmail(), saved.getRole());
+        log.info("Benutzer angelegt: {} mit Rolle {} und Mitarbeiter {} ({})", 
+                saved.getEmail(), saved.getRole(), empNumber, savedEmployee.getId());
         return toDTO(saved);
+    }
+
+    private String generateNextEmployeeNumber() {
+        Integer maxNum = employeeRepo.findMaxEmployeeNumber();
+        int nextNum = (maxNum != null ? maxNum : 0) + 1;
+        return String.format("EMP-%03d", nextNum);
+    }
+
+    private String mapRoleToDepartment(AppUser.Role role) {
+        return switch (role) {
+            case ADMIN -> "Administration";
+            case HR -> "Personal";
+            case IT -> "IT";
+            case VIEWER -> "Allgemein";
+        };
+    }
+
+    private String mapRoleToPosition(AppUser.Role role) {
+        return switch (role) {
+            case ADMIN -> "Administrator";
+            case HR -> "HR-Mitarbeiter";
+            case IT -> "IT-Mitarbeiter";
+            case VIEWER -> "Mitarbeiter";
+        };
+    }
+
+    public UserDTO updateUser(Long userId, UpdateUserDTO dto) {
+        AppUser user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
+
+        if (dto.getDisplayName() != null && !dto.getDisplayName().isBlank())
+            user.setDisplayName(dto.getDisplayName());
+
+        if (dto.getEmail() != null && !dto.getEmail().isBlank() && !dto.getEmail().equals(user.getEmail())) {
+            if (userRepo.existsByEmail(dto.getEmail()))
+                throw new BusinessException("E-Mail bereits vergeben: " + dto.getEmail());
+            user.setEmail(dto.getEmail());
+        }
+
+        log.info("Benutzer bearbeitet: {} (id={})", user.getEmail(), userId);
+        return toDTO(userRepo.save(user));
+    }
+
+    public void deleteUser(Long userId) {
+        AppUser user = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
+
+        String currentUser = currentUsername();
+        if (currentUser != null && user.getEmail().equals(currentUser))
+            throw new BusinessException("Eigenen Account kann man nicht löschen.");
+
+        if (user.isAccountNonLocked())
+            throw new BusinessException("Nur gesperrte Benutzer können gelöscht werden.");
+
+        if (user.getRole() == AppUser.Role.ADMIN) {
+            long adminCount = userRepo.countByRole(AppUser.Role.ADMIN);
+            if (adminCount <= 1)
+                throw new BusinessException("Letzter ADMIN kann nicht gelöscht werden.");
+        }
+
+        userRepo.delete(user);
+        log.info("Benutzer gelöscht: {} (id={})", user.getEmail(), userId);
     }
 
     public UserDTO updateRole(Long userId, AppUser.Role newRole) {
         AppUser user = userRepo.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
+
+        // Selbst-Degradierung verhindern — sonst sperrt man sich selbst aus
+        String currentUser = currentUsername();
+        if (currentUser != null && user.getEmail().equals(currentUser) && user.getRole() != newRole)
+            throw new BusinessException("Eigene Rolle kann nicht geändert werden.");
 
         // Letzten Admin schützen
         if (user.getRole() == AppUser.Role.ADMIN && newRole != AppUser.Role.ADMIN) {
@@ -78,9 +174,8 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new ResourceNotFoundException("Benutzer", userId));
 
         // Eigenen Account nicht sperren
-        String currentUser = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
-        if (user.getEmail().equals(currentUser))
+        String currentUser = currentUsername();
+        if (currentUser != null && user.getEmail().equals(currentUser))
             throw new BusinessException("Eigenen Account kann man nicht sperren.");
 
         user.setAccountNonLocked(!user.isAccountNonLocked());
@@ -102,6 +197,12 @@ public class UserService implements UserDetailsService {
             u.setLastLoginAt(LocalDateTime.now());
             userRepo.save(u);
         });
+    }
+
+    private String currentUsername() {
+        var ctx = SecurityContextHolder.getContext();
+        if (ctx == null || ctx.getAuthentication() == null) return null;
+        return ctx.getAuthentication().getName();
     }
 
     private UserDTO toDTO(AppUser u) {

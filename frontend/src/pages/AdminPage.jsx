@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../api/index.js";
+import Spinner from "../components/Spinner.jsx";
+import PasswordInput from "../components/PasswordInput.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const ROLES = ["ADMIN", "HR", "IT", "VIEWER"];
 
@@ -9,52 +13,120 @@ const ROLE_CONFIG = {
   VIEWER: { color: "#64748b", bg: "rgba(100,116,139,0.12)", label: "Viewer", icon: "V", desc: "Nur lesender Zugriff" },
 };
 
-// Simulierte Benutzerdaten
-const MOCK_USERS = [
-  { id: 1, email: "admin@firma.de",     displayName: "System Admin",  role: "ADMIN",  enabled: true, accountNonLocked: true,  lastLoginAt: "2024-12-01T09:15:00", createdAt: "2024-01-01" },
-  { id: 2, email: "hr.meyer@firma.de",  displayName: "Maria Meyer",   role: "HR",     enabled: true, accountNonLocked: true,  lastLoginAt: "2024-12-01T08:30:00", createdAt: "2024-03-15" },
-  { id: 3, email: "it.schmidt@firma.de",displayName: "Klaus Schmidt", role: "IT",     enabled: true, accountNonLocked: true,  lastLoginAt: "2024-11-30T14:20:00", createdAt: "2024-02-10" },
-  { id: 4, email: "view.only@firma.de", displayName: "Leser Müller",  role: "VIEWER", enabled: true, accountNonLocked: false, lastLoginAt: null,                  createdAt: "2024-06-01" },
-];
-
 function getRoleDescription(role) {
   return ROLE_CONFIG[role]?.desc || "";
 }
 
 export function AdminPage({ toast }) {
-  const [users, setUsers]         = useState(MOCK_USERS);
+  const { user: currentUser } = useAuth();
+  const [users, setUsers]         = useState([]);
   const [search, setSearch]       = useState("");
   const [showForm, setShowForm]   = useState(false);
   const [confirmAction, setConfirm] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [loading, setLoading]     = useState(true);
 
-  const filtered = users.filter((u) =>
-    `${u.email} ${u.displayName}`.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    api.get("/admin/users?size=200").then((data) => {
+      if (data?.content) setUsers(data.content);
+    }).catch(() => toast?.("Benutzer konnten nicht geladen werden"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleRoleChange = (userId, newRole) => {
-    setUsers((u) => u.map((usr) => usr.id === userId ? { ...usr, role: newRole } : usr));
-    toast(`Rolle erfolgreich geändert auf ${newRole}`);
+  const filtered = users
+    .filter((u) =>
+      `${u.email} ${u.displayName}`.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, 'de'));
+
+  const handleRoleChange = async (userId, newRole) => {
+    const prevUsers = users;
+    try {
+      const updated = await api.request("PUT", `/admin/users/${userId}/role?role=${newRole}`);
+      if (!updated) throw new Error("Leere Antwort vom Server");
+      setUsers((u) => u.map((usr) => usr.id === userId ? updated : usr));
+      toast(`Rolle geändert auf ${newRole}`);
+    } catch (err) {
+      console.error("Rollenänderung fehlgeschlagen:", err);
+      setUsers(prevUsers);
+      toast(err?.message || "Rollenänderung fehlgeschlagen");
+    }
   };
 
-  const handleToggleLock = (userId) => {
-    const user = users.find((u) => u.id === userId);
-    setUsers((u) => u.map((usr) =>
-      usr.id === userId ? { ...usr, accountNonLocked: !usr.accountNonLocked } : usr
-    ));
-    toast(user.accountNonLocked ? "Account gesperrt" : "Account entsperrt");
-    setConfirm(null);
+  const handleEdit = async (userId, patch) => {
+    try {
+      const updated = await api.put(`/admin/users/${userId}`, patch);
+      setUsers((u) => u.map((usr) => usr.id === userId ? updated : usr));
+      toast("Benutzer aktualisiert");
+      setConfirm(null);
+    } catch (err) {
+      console.error("Edit fehlgeschlagen:", err);
+      toast(err?.message || "Speichern fehlgeschlagen");
+    }
   };
 
-  const handleCreate = (newUser) => {
-    setUsers((u) => [...u, { ...newUser, id: Date.now(), createdAt: new Date().toISOString() }]);
-    toast("Benutzer angelegt");
-    setShowForm(false);
+  const handleDelete = async (userId) => {
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      setUsers((u) => u.filter((usr) => usr.id !== userId));
+      toast("Benutzer gelöscht");
+      setConfirm(null);
+    } catch (err) {
+      console.error("Delete fehlgeschlagen:", err);
+      toast(err?.message || "Löschen fehlgeschlagen");
+    }
+  };
+
+  const handleToggleLock = async (userId) => {
+    try {
+      await api.request("PUT", `/admin/users/${userId}/toggle-lock`);
+      setUsers((u) => u.map((usr) =>
+        usr.id === userId ? { ...usr, accountNonLocked: !usr.accountNonLocked } : usr
+      ));
+      const user = users.find((u) => u.id === userId);
+      toast(user.accountNonLocked ? "Account gesperrt" : "Account entsperrt");
+      setConfirm(null);
+    } catch (err) {
+      console.error("Toggle-Lock fehlgeschlagen:", err);
+      toast(err?.message || "Aktion fehlgeschlagen");
+    }
+  };
+
+  const handlePasswordReset = async (userId, newPassword) => {
+    try {
+      await api.request("PUT", `/admin/users/${userId}/reset-password?newPassword=${encodeURIComponent(newPassword)}`);
+      toast("Passwort zurückgesetzt");
+      setConfirm(null);
+    } catch (err) {
+      console.error("Passwort-Reset fehlgeschlagen:", err);
+      toast(err?.message || "Passwort-Reset fehlgeschlagen");
+    }
+  };
+
+  const handleCreate = async (newUser) => {
+    try {
+      const created = await api.post("/admin/users", newUser);
+      if (created && created.id) {
+        setUsers((u) => [...u, created]);
+        toast("Benutzer angelegt");
+        setShowForm(false);
+      } else {
+        // Falls API keinen vollständigen Benutzer zurückgibt, Liste neu laden
+        const data = await api.get("/admin/users?size=200");
+        if (data?.content) setUsers(data.content);
+        toast("Benutzer angelegt");
+        setShowForm(false);
+      }
+    } catch (err) {
+      toast(err?.message || "Anlegen fehlgeschlagen");
+    }
   };
 
   const roleCounts = ROLES.reduce((acc, r) => ({
     ...acc, [r]: users.filter((u) => u.role === r).length,
   }), {});
+
+  if (loading) return <Spinner text="Benutzer laden …" />;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -204,6 +276,9 @@ export function AdminPage({ toast }) {
           <tbody>
             {filtered.map((user, i) => {
               const rc = ROLE_CONFIG[user.role];
+              const isSelf = user.email === currentUser?.email;
+              const roleLocked = user.id === 1 || isSelf;
+              const lockDisabled = user.id === 1 || isSelf;
               return (
                 <tr
                   key={user.id}
@@ -253,7 +328,8 @@ export function AdminPage({ toast }) {
                       <select
                         value={user.role}
                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        disabled={user.id === 1}
+                        disabled={roleLocked}
+                        title={isSelf ? "Eigene Rolle kann nicht geändert werden" : user.id === 1 ? "System-Admin" : ""}
                         style={{
                           padding: "5px 28px 5px 10px",
                           borderRadius: "6px",
@@ -263,8 +339,8 @@ export function AdminPage({ toast }) {
                           fontSize: 12,
                           fontWeight: 600,
                           fontFamily: "'DM Sans', sans-serif",
-                          cursor: user.id === 1 ? "not-allowed" : "pointer",
-                          opacity: user.id === 1 ? 0.5 : 1,
+                          cursor: roleLocked ? "not-allowed" : "pointer",
+                          opacity: roleLocked ? 0.5 : 1,
                           appearance: "none",
                           WebkitAppearance: "none",
                           outline: "none",
@@ -324,24 +400,37 @@ export function AdminPage({ toast }) {
 
                   {/* Actions */}
                   <td style={{ padding: "14px 16px" }}>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button
+                        onClick={() => setConfirm({ type: "edit", user })}
+                        style={{
+                          padding: "5px 12px", borderRadius: "6px", border: "1px solid #334155",
+                          background: "transparent", color: "#a5b4fc", cursor: "pointer",
+                          fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.1)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      >
+                        Bearbeiten
+                      </button>
                       <button
                         onClick={() => setConfirm({ type: "lock", user })}
-                        disabled={user.id === 1}
+                        disabled={lockDisabled}
+                        title={isSelf ? "Eigenen Account kann man nicht sperren" : ""}
                         style={{
                           padding: "5px 12px",
                           borderRadius: "6px",
                           border: "1px solid #334155",
                           background: "transparent",
                           color: user.accountNonLocked ? "#f59e0b" : "#10b981",
-                          cursor: user.id === 1 ? "not-allowed" : "pointer",
+                          cursor: lockDisabled ? "not-allowed" : "pointer",
                           fontSize: 12,
                           fontFamily: "'DM Sans', sans-serif",
-                          opacity: user.id === 1 ? 0.3 : 1,
+                          opacity: lockDisabled ? 0.3 : 1,
                           transition: "all 150ms ease",
                         }}
                         onMouseEnter={(e) => {
-                          if (user.id !== 1) {
+                          if (!lockDisabled) {
                             e.currentTarget.style.background = user.accountNonLocked ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)";
                           }
                         }}
@@ -367,6 +456,20 @@ export function AdminPage({ toast }) {
                       >
                         PW Reset
                       </button>
+                      {!user.accountNonLocked && user.id !== 1 && !isSelf && (
+                        <button
+                          onClick={() => setConfirm({ type: "delete", user })}
+                          style={{
+                            padding: "5px 12px", borderRadius: "6px", border: "1px solid #334155",
+                            background: "transparent", color: "#ef4444", cursor: "pointer",
+                            fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          Löschen
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -385,8 +488,11 @@ export function AdminPage({ toast }) {
       {confirmAction && (
         <ConfirmDialog
           action={confirmAction}
-          onConfirm={() => {
+          onConfirm={(data) => {
             if (confirmAction.type === "lock") handleToggleLock(confirmAction.user.id);
+            if (confirmAction.type === "password") handlePasswordReset(confirmAction.user.id, data);
+            if (confirmAction.type === "delete") handleDelete(confirmAction.user.id);
+            if (confirmAction.type === "edit") handleEdit(confirmAction.user.id, data);
           }}
           onClose={() => setConfirm(null)}
         />
@@ -397,6 +503,7 @@ export function AdminPage({ toast }) {
 
 function CreateUserModal({ onSave, onClose }) {
   const [form, setForm] = useState({ email: "", displayName: "", role: "VIEWER", initialPassword: "" });
+  const [confirmPw, setConfirmPw] = useState("");
   const [errors, setErrors] = useState({});
   const [fieldFocus, setFieldFocus] = useState({});
 
@@ -407,6 +514,7 @@ function CreateUserModal({ onSave, onClose }) {
     if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Gültige E-Mail erforderlich";
     if (!form.displayName) e.displayName = "Pflichtfeld";
     if (!form.initialPassword || form.initialPassword.length < 8) e.initialPassword = "Mindestens 8 Zeichen";
+    else if (form.initialPassword !== confirmPw) e.initialPassword = "Passwörter stimmen nicht überein";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -554,16 +662,16 @@ function CreateUserModal({ onSave, onClose }) {
             <label style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>
               Initiales Passwort *
             </label>
-            <input
-              type="password"
+            <PasswordInput
               value={form.initialPassword}
-              onChange={(e) => set("initialPassword", e.target.value)}
-              onFocus={() => setFieldFocus((f) => ({ ...f, initialPassword: true }))}
-              onBlur={() => setFieldFocus((f) => ({ ...f, initialPassword: false }))}
+              onChange={(v) => set("initialPassword", v)}
+              confirmValue={confirmPw}
+              onConfirmChange={setConfirmPw}
+              verify
               placeholder="Mindestens 8 Zeichen"
-              style={inputStyle("initialPassword")}
+              inputStyle={inputStyle("initialPassword")}
+              error={errors.initialPassword}
             />
-            {errors.initialPassword && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>{errors.initialPassword}</div>}
             <div style={{ fontSize: 11, color: "#475569", marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
               Der Benutzer sollte das Passwort beim ersten Login ändern.
             </div>
@@ -637,111 +745,101 @@ function CreateUserModal({ onSave, onClose }) {
 }
 
 function ConfirmDialog({ action, onConfirm, onClose }) {
-  const isLock  = action.type === "lock";
+  const isLock   = action.type === "lock";
+  const isPw     = action.type === "password";
+  const isDelete = action.type === "delete";
+  const isEdit   = action.type === "edit";
   const willLock = action.user.accountNonLocked;
+  const [newPw, setNewPw] = useState("");
+  const [newPwConfirm, setNewPwConfirm] = useState("");
+  const [editForm, setEditForm] = useState({
+    email: action.user.email,
+    displayName: action.user.displayName,
+  });
+
+  const pwValid = newPw.length >= 8 && newPw === newPwConfirm;
+
+  const dialogStyle = {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+    zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+  };
+  const boxStyle = {
+    background: "#1e293b", border: "1px solid #334155", borderRadius: "12px", padding: 28,
+    maxWidth: 380, width: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.5)", textAlign: "center",
+  };
+  const btnBase = {
+    padding: "9px 18px", borderRadius: "8px", cursor: "pointer", fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif", transition: "all 150ms ease",
+  };
+
+  const title = isEdit ? "Benutzer bearbeiten"
+              : isDelete ? "Benutzer löschen?"
+              : isPw ? "Passwort zurücksetzen"
+              : willLock ? "Account sperren?" : "Account entsperren?";
+
+  const description = isEdit ? `Name und E-Mail für ${action.user.displayName} ändern.`
+                    : isDelete ? `${action.user.displayName} wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.`
+                    : isPw ? `Neues Passwort für ${action.user.displayName} setzen.`
+                    : willLock ? `${action.user.displayName} kann sich nach dem Sperren nicht mehr anmelden.`
+                    : `${action.user.displayName} erhält wieder Zugang zum System.`;
+
+  const inputCss = {
+    width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155",
+    fontSize: 13, color: "#f1f5f9", background: "#0f172a", outline: "none",
+    fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", marginBottom: 12,
+  };
+
+  const editValid = editForm.displayName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.7)",
-        backdropFilter: "blur(4px)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          background: "#1e293b",
-          border: "1px solid #334155",
-          borderRadius: "12px",
-          padding: 28,
-          maxWidth: 380,
-          width: "100%",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: willLock ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.12)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 16px",
-            fontSize: 24,
-          }}
-        >
-          {isLock && willLock ? "🔒" : "🔓"}
-        </div>
-        <h3
-          style={{
-            margin: "0 0 8px",
-            fontSize: 16,
-            fontWeight: 600,
-            color: "#f1f5f9",
-            fontFamily: "'Sora', sans-serif",
-          }}
-        >
-          {isLock && willLock ? "Account sperren?" : "Account entsperren?"}
+    <div style={dialogStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...boxStyle, textAlign: isEdit ? "left" : "center" }}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600, color: "#f1f5f9", fontFamily: "'Sora', sans-serif", textAlign: "center" }}>
+          {title}
         </h3>
-        <p
-          style={{
-            color: "#64748b",
-            fontSize: 13,
-            margin: "0 0 24px",
-            fontFamily: "'DM Sans', sans-serif",
-            lineHeight: 1.6,
-          }}
-        >
-          {willLock
-            ? `${action.user.displayName} kann sich nach dem Sperren nicht mehr anmelden.`
-            : `${action.user.displayName} erhält wieder Zugang zum System.`}
+        <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6, textAlign: "center" }}>
+          {description}
         </p>
+        {isEdit && (
+          <>
+            <label style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>Anzeigename</label>
+            <input value={editForm.displayName} onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))} style={inputCss} />
+            <label style={{ fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif", display: "block", marginBottom: 5 }}>E-Mail</label>
+            <input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} style={{ ...inputCss, marginBottom: 20 }} />
+          </>
+        )}
+        {isPw && (
+          <div style={{ marginBottom: 20, textAlign: "left" }}>
+            <PasswordInput
+              value={newPw}
+              onChange={setNewPw}
+              confirmValue={newPwConfirm}
+              onConfirmChange={setNewPwConfirm}
+              verify
+              autoFocus
+              placeholder="Neues Passwort (mind. 8 Zeichen)"
+              inputStyle={{ ...inputCss, marginBottom: 0 }}
+            />
+          </div>
+        )}
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: "9px 18px",
-              borderRadius: "8px",
-              border: "1px solid #334155",
-              background: "transparent",
-              color: "#94a3b8",
-              cursor: "pointer",
-              fontSize: 13,
-              fontFamily: "'DM Sans', sans-serif",
-              transition: "all 150ms ease",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
+          <button onClick={onClose} style={{ ...btnBase, border: "1px solid #334155", background: "transparent", color: "#94a3b8" }}>
             Abbrechen
           </button>
           <button
-            onClick={onConfirm}
-            style={{
-              padding: "9px 18px",
-              borderRadius: "8px",
-              background: willLock ? "#ef4444" : "#10b981",
-              color: "#fff",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
-              fontFamily: "'DM Sans', sans-serif",
-              transition: "background 150ms ease",
+            onClick={() => {
+              if (isEdit)   return onConfirm(editForm);
+              if (isPw)     return onConfirm(newPw);
+              return onConfirm();
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = willLock ? "#dc2626" : "#059669")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = willLock ? "#ef4444" : "#10b981")}
+            disabled={(isPw && !pwValid) || (isEdit && !editValid)}
+            style={{
+              ...btnBase, border: "none", color: "#fff", fontWeight: 600,
+              background: isEdit ? "#6366f1" : isDelete ? "#ef4444" : isPw ? "#6366f1" : willLock ? "#ef4444" : "#10b981",
+              opacity: (isPw && !pwValid) || (isEdit && !editValid) ? 0.5 : 1,
+            }}
           >
-            {willLock ? "Sperren" : "Entsperren"}
+            {isEdit ? "Speichern" : isDelete ? "Löschen" : isPw ? "Zurücksetzen" : willLock ? "Sperren" : "Entsperren"}
           </button>
         </div>
       </div>

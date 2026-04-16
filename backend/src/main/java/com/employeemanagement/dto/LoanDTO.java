@@ -14,9 +14,11 @@ public class LoanDTO {
     private Long id;
     private Long employeeId;
     private String employeeName;
+    private Long hardwareUnitId;
     private Long hardwareId;
     private String hardwareName;
     private String assetTag;
+    private String serialNumber;
     private LocalDate loanDate;
     private LocalDate returnDate;
     private LocalDateTime returnedAt;

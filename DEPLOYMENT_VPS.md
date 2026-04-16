@@ -4,6 +4,249 @@
 **Server:** Hetzner CX23 — 2 vCPU, 4 GB RAM, 40 GB SSD, ~4,75 €/Monat  
 **Standort:** Nürnberg, Deutschland  
 
+> **Automatische Benachrichtigung:** Bei jedem Push auf `main` schickt eine GitHub Action eine Mail an alle Admins mit Commit-Info und dieser Deployment-Anleitung. Einrichtung + Details: siehe [`DEPLOY_NOTIFICATIONS.md`](./DEPLOY_NOTIFICATIONS.md).
+
+---
+
+# ⚡ Nach einer Änderung deployen — Schnelleinstieg
+
+Diese Sektion beschreibt den typischen Ablauf **nach** einer Code-Änderung.
+Der Rest des Dokuments (unten) ist die Erst-Einrichtung des Servers und
+wird nur einmal gebraucht.
+
+Es gibt zwei Ziele:
+
+| Ziel | Wann? | URL |
+|------|-------|-----|
+| **Lokaler Rechner** (Entwicklungsumgebung) | Zum Testen der Änderung bevor sie live geht | http://localhost:3000 |
+| **Remote VPS** (Produktion) | Wenn die Änderung getestet ist und live gehen soll | https://em.cavdar.de |
+
+**Faustregel:** Immer erst lokal testen, dann commit + push, dann remote deployen.
+
+---
+
+## A) Lokal deployen (Entwicklungs-PC)
+
+Ausgangslage: Du hast gerade Code geändert auf deinem PC unter
+`E:\Projekte\ClaudeCode\EmployeeManagement`.
+
+### Schritt 1 — Backend bauen (nur wenn Java-Code oder Flyway-Migration geändert)
+
+```bash
+cd E:/Projekte/ClaudeCode/EmployeeManagement/backend
+../ci.cmd 25
+```
+
+Erwartet am Ende: `BUILD SUCCESS`. Das erzeugt ein frisches JAR unter
+`backend/target/employeemanagement-backend-1.0.0.jar`, das der Docker-Build
+anschließend nutzt.
+
+> Wenn nur Frontend-Code (`frontend/src/...`) geändert wurde, **kannst du
+> Schritt 1 überspringen** — Docker baut das Frontend aus den Quellen.
+
+### Schritt 2 — Container bauen + starten
+
+```bash
+cd E:/Projekte/ClaudeCode/EmployeeManagement
+docker compose up -d --build
+```
+
+Das läuft ca. 30–90 Sekunden. Die Datenbank (`postgres`-Volume) bleibt
+erhalten, Flyway-Migrationen werden beim Backend-Start automatisch
+angewendet.
+
+**Nur ein Service geändert?** Dann gezielt:
+
+```bash
+# Nur Backend neu bauen + starten:
+docker compose up -d --build backend
+
+# Nur Frontend:
+docker compose up -d --build frontend
+```
+
+### Schritt 3 — Status prüfen
+
+```bash
+docker ps --filter "name=employeemanagement" --format "table {{.Names}}\t{{.Status}}"
+```
+
+Alle drei Container müssen `(healthy)` zeigen.
+
+### Schritt 4 — Im Browser testen
+
+- http://localhost:3000 öffnen (Strg+Shift+R für Hard-Refresh)
+- Login: `admin@firma.de` / `admin123`
+- Feature durchspielen
+
+### Schritt 5 — Commit + Push
+
+Wenn das Feature lokal läuft, die Änderung einchecken:
+
+```bash
+cd E:/Projekte/ClaudeCode/EmployeeManagement
+git add -A
+git commit -m "feat: kurze Beschreibung der Änderung"
+git push
+```
+
+Der Push löst automatisch die GitHub Action aus, die die Admin(s) per
+E-Mail informiert, dass ein Produktions-Deployment ansteht.
+
+---
+
+## B) Remote deployen (Produktions-VPS)
+
+Ausgangslage: Die Änderung ist nach `main` gepusht; du willst sie live
+auf https://em.cavdar.de schalten.
+
+### Schritt 1 — Auf den Server verbinden
+
+```bash
+ssh vps
+```
+
+(Voraussetzung: SSH-Config steht — siehe Abschnitt "SSH-Konfiguration" weiter unten.)
+
+### Schritt 2 — Ins Projektverzeichnis wechseln
+
+```bash
+cd /opt/employeemanagement
+```
+
+### Schritt 3 — Datenbank-Backup (Sicherheitsnetz, Pflicht!)
+
+```bash
+docker exec employeemanagement-postgres \
+  pg_dump -U employeemanagement employeemanagement \
+  > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
+
+# Kontrolle:
+ls -lh /opt/backups/employeemanagement/ | tail -3
+```
+
+Ohne Backup → kein Deploy. Falls eine Flyway-Migration die DB beschädigt,
+kann das Backup sie wiederherstellen.
+
+### Schritt 4 — Code holen
+
+```bash
+git pull
+```
+
+Falls ein Fehler `unsafe directory` erscheint, einmalig:
+
+```bash
+git config --global --add safe.directory /opt/employeemanagement
+git pull
+```
+
+### Schritt 5 — Container neu bauen (mit `--no-cache`!)
+
+Je nach Änderungsumfang:
+
+```bash
+# Backend + Frontend (typisch bei größeren Änderungen):
+docker compose build --no-cache backend frontend
+
+# Nur Backend:
+docker compose build --no-cache backend
+
+# Nur Frontend:
+docker compose build --no-cache frontend
+```
+
+`--no-cache` ist wichtig, damit Docker den neuen Code kompiliert und nicht
+die alte gecachte Schicht nimmt. Build-Dauer: ca. 1–3 Minuten.
+
+### Schritt 6 — Starten
+
+```bash
+docker compose up -d
+```
+
+Spring Boot braucht ~30 Sekunden zum Hochfahren (Flyway-Migrationen,
+App-Start).
+
+### Schritt 7 — Health-Checks
+
+```bash
+docker compose ps
+```
+
+Alle drei müssen `(healthy)` zeigen. Zusätzlich schnell prüfen:
+
+```bash
+curl -s http://localhost:8082/actuator/health
+# → {"status":"UP"}
+```
+
+Wenn etwas rot ist:
+
+```bash
+docker logs employeemanagement-backend  --tail 80
+docker logs employeemanagement-frontend --tail 80
+```
+
+### Schritt 8 — Browser-Test
+
+- https://em.cavdar.de aufrufen (Strg+Shift+R)
+- Mit Admin einloggen
+- Das geänderte Feature kurz antesten
+
+### Schritt 9 — Aufräumen (optional)
+
+```bash
+docker image prune -f   # alte Images löschen, Platz freigeben
+df -h /                 # freien Plattenplatz prüfen
+```
+
+---
+
+## Kurzversion zum Copy-Paste
+
+**Lokal (PC, aus `E:\Projekte\ClaudeCode\EmployeeManagement`):**
+
+```bash
+cd backend && ../ci.cmd 25 && cd ..
+docker compose up -d --build
+docker ps --filter "name=employeemanagement"
+```
+
+**Remote (nach `ssh vps`):**
+
+```bash
+cd /opt/employeemanagement
+docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
+git pull
+docker compose build --no-cache backend frontend
+docker compose up -d
+sleep 30 && docker compose ps
+curl -s http://localhost:8082/actuator/health
+```
+
+---
+
+## Entscheidungshilfe: Was muss ich neu bauen?
+
+| Du hast geändert … | Lokal Schritt 1 (ci.cmd)? | Image neu bauen |
+|---|---|---|
+| `backend/src/main/java/...` (Java-Code) | **Ja** | `backend` |
+| `backend/src/main/resources/db/migration/*.sql` (Flyway) | **Ja** | `backend` |
+| `backend/pom.xml` (Dependencies) | **Ja** | `backend` |
+| `frontend/src/...` (React / JSX) | Nein | `frontend` |
+| `frontend/package.json` (NPM-Deps) | Nein | `frontend` |
+| `docker-compose*.yml` (nur Env, Ports) | Nein | gar nichts, nur `up -d` |
+| Nur `.md`-Dateien (Docs) | Nein | gar nichts |
+
+---
+
+## Wenn etwas schiefgeht
+
+Siehe Abschnitt **Fehlerbehebung** am Ende des Dokuments. Die wichtigsten
+Fälle: Flyway-Checksum-Fehler, unhealthy Container, Browser zeigt alte
+Version (Cache!).
+
 ---
 
 ## Was ist ein Deployment überhaupt?
@@ -412,26 +655,158 @@ docker compose down -v
 
 ---
 
-*Erstellt: 2026-04-03 | Erfolgreich deployed: 2026-04-03 | Projekt: EmployeeManagement*
+## E-Mail-Benachrichtigungen einrichten (Google Workspace)
 
+### 1. Google App-Passwort erstellen
 
+Gmail/Google Workspace blockiert Logins von Apps. Stattdessen braucht man ein
+**App-Passwort** — ein spezielles 16-stelliges Passwort nur für diese App.
 
+1. Öffne https://myaccount.google.com/apppasswords
+2. Ggf. 2-Faktor-Authentifizierung aktivieren (Voraussetzung)
+3. App-Name eingeben: `EmployeeManagement`
+4. "Erstellen" klicken → Google zeigt ein 16-stelliges Passwort (z.B. `abcd efgh ijkl mnop`)
+5. **Passwort kopieren** (wird nur einmal angezeigt!)
 
-Manuell auf dem Hetzner-Server ausführen:                                                                             
-  cd /opt/employeemanagement                                                                                            
-  # Backup der Datenbank
-  docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement \
-    > /opt/backups/employeemanagement_$(date +%Y%m%d_%H%M%S).sql
+### 2. .env auf dem VPS ergänzen
 
-  # Neue Images ziehen (aus GHCR, die CI hat diese schon gebaut)
-  docker compose pull backend frontend
+```bash
+ssh vps
+nano /opt/employeemanagement/.env
+```
 
-  # Rolling Update
-  docker compose up -d --no-deps backend
-  sleep 20
+Folgende Zeilen am Ende hinzufügen:
 
-  # Health-Check
-  curl -s http://localhost:8080/actuator/health
+```env
+NOTIFICATION_ENABLED=true
+NOTIFICATION_EMAIL=kemal@cavdar.de
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=kemal@cavdar.de
+MAIL_PASSWORD=xxxx xxxx xxxx xxxx
+```
 
-  # Wenn "UP" → Frontend hochziehen
-  docker compose up -d --no-deps frontend
+### 3. Backend neu starten
+
+```bash
+cd /opt/employeemanagement
+docker compose up -d backend
+```
+
+### 4. Test-Mail senden
+
+In der App: **Benachrichtigungen** → E-Mail-Adresse eingeben → "Test senden".
+Oder per curl:
+
+```bash
+TOKEN=$(curl -s https://em.cavdar.de/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@firma.de","password":"admin123"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+curl -s -X POST "https://em.cavdar.de/api/v1/admin/notifications/test?to=kemal@cavdar.de" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Was wird benachrichtigt?
+
+| Benachrichtigung | Zeitpunkt | Inhalt |
+|-----------------|-----------|--------|
+| Garantie-Ablauf | Täglich 08:00 | Hardware deren Garantie in ≤30 Tagen abläuft |
+| Lizenz-Erneuerung | Täglich 08:00 | Software deren Lizenz in ≤30 Tagen erneuert werden muss |
+
+Die Schwellwerte (30 Tage) können in der `.env` angepasst werden:
+```env
+# Optional — Defaults sind 30 Tage
+NOTIFICATION_WARRANTY_DAYS=30
+NOTIFICATION_RENEWAL_DAYS=30
+```
+
+---
+
+## Wichtig: docker-compose.yml muss im Repo bleiben!
+
+Die `docker-compose.yml` (und die anderen compose-Dateien) **dürfen nicht aus dem
+Repo entfernt oder verschoben werden**. Der VPS deployt mit:
+
+```bash
+cd /opt/employeemanagement   # ← Git-Repo-Klon
+docker compose up -d          # ← sucht docker-compose.yml im aktuellen Verzeichnis
+```
+
+Ohne `docker-compose.yml` im Repo findet Docker auf dem Server nichts → Deployment
+bricht ab.
+
+### Zentrale Steuerung auf dem lokalen Entwicklungs-PC
+
+Wenn du alle Docker-Projekte von einer zentralen Stelle steuern willst
+(z.B. `E:\Projekte\ClaudeCode\docker\`), nutze den `-f`-Parameter von
+Docker Compose. Damit verweist du auf die Datei im Projekt, ohne sie
+zu verschieben:
+
+```powershell
+# Aus beliebigem Verzeichnis heraus:
+docker compose -f E:\Projekte\ClaudeCode\EmployeeManagement\docker-compose.yml up -d
+
+# Oder ein Wrapper-Script in E:\Projekte\ClaudeCode\docker\em.cmd:
+@echo off
+docker compose -f E:\Projekte\ClaudeCode\EmployeeManagement\docker-compose.yml %*
+```
+
+Dann kannst du von überall `em up -d`, `em ps`, `em logs backend` etc. ausführen —
+die compose-Dateien bleiben aber im Repo und das VPS-Deployment funktioniert weiter.
+
+---
+
+## SSH-Konfiguration (einmalig, auf dem eigenen PC)
+
+Damit `ssh vps` als Kurzform funktioniert, in `~/.ssh/config`
+folgenden Eintrag hinterlegen:
+
+```
+Host vps cavdar-vps 94.130.228.157
+  HostName 94.130.228.157
+  User root
+  IdentityFile c:\Users\CavdarK\.ssh\id_ed25519
+  PreferredAuthentications publickey
+```
+
+Danach verbindet `ssh vps` sich direkt.
+
+---
+
+## Fehlerbehebung
+
+### Backend startet nicht (unhealthy)
+```bash
+docker logs employeemanagement-backend --tail 100
+```
+Häufige Ursachen:
+- **Flyway-Checksum-Fehler:** Eine bereits angewandte Migration wurde nachträglich
+  geändert. Fix: `docker exec employeemanagement-postgres psql -U employeemanagement
+  -d employeemanagement -c "DELETE FROM flyway_schema_history WHERE version = 'X';"`
+- **Port belegt:** `docker compose down` und dann `docker compose up -d`
+
+### Frontend zeigt alte Version
+- Browser-Cache leeren: **Strg+Shift+R**
+- Oder: Entwicklertools (F12) → Netzwerk → "Cache deaktivieren" anhaken
+
+### Datenbank zurücksetzen (letzter Ausweg)
+```bash
+# Backup einspielen:
+cat /opt/backups/employeemanagement/db_YYYYMMDD_HHMMSS.sql | \
+  docker exec -i employeemanagement-postgres \
+  psql -U employeemanagement -d employeemanagement
+
+# Oder komplett neu starten (ACHTUNG: alle Daten weg!):
+docker compose down -v
+docker compose up -d
+```
+
+### Container-Ressourcen prüfen
+```bash
+# RAM- und CPU-Verbrauch:
+docker stats --no-stream
+
+# Disk-Usage der Docker-Volumes:
+docker system df
+```

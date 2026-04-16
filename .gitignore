@@ -28,4 +28,10 @@ target/
 # Credentials / Secrets
 *.txt
 .env
+
+# Downloaded exports aus dem UI
+/Hardware_*.csv
+/Software_*.csv
+/Employees_*.csv
+/Mitarbeiter_*.csv
 .env.*

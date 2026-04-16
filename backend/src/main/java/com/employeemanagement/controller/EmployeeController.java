@@ -47,12 +47,13 @@ public class EmployeeController {
                 .body(created);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data", "application/json"})
     @Operation(summary = "Mitarbeiter aktualisieren")
     public ResponseEntity<EmployeeDTO> update(
             @PathVariable Long id,
-            @Valid @RequestBody EmployeeDTO dto) {
-        return ResponseEntity.ok(service.update(id, dto));
+            @Valid @RequestPart("employee") EmployeeDTO dto,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
+        return ResponseEntity.ok(service.update(id, dto, photo));
     }
 
     @DeleteMapping("/{id}")

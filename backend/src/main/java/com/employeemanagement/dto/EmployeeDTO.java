@@ -43,7 +43,8 @@ public class EmployeeDTO {
     private String city;
     private String zipCode;
     private String country;
-    private boolean active;
+    @Builder.Default
+    private Boolean active = true;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

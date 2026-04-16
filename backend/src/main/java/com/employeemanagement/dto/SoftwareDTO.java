@@ -22,8 +22,8 @@ public class SoftwareDTO {
     private String version;
     private String category;
     private String licenseType;
-    private int totalLicenses;
-    private int usedLicenses;
+    private Integer totalLicenses;
+    private Integer usedLicenses;
     private BigDecimal costPerLicense;
     private LocalDate renewalDate;
     private String notes;

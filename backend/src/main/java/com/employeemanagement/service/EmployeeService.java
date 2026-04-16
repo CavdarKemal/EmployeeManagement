@@ -58,7 +58,7 @@ public class EmployeeService {
         return mapper.toDTO(saved);
     }
 
-    public EmployeeDTO update(Long id, EmployeeDTO dto) {
+    public EmployeeDTO update(Long id, EmployeeDTO dto, MultipartFile photo) {
         Employee existing = repo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Mitarbeiter", id));
 
@@ -67,6 +67,12 @@ public class EmployeeService {
             throw new BusinessException("E-Mail bereits vorhanden: " + dto.getEmail());
 
         mapper.updateEntity(dto, existing);
+
+        if (photo != null && !photo.isEmpty()) {
+            String photoUrl = savePhoto(photo, existing.getEmployeeNumber());
+            existing.setPhotoUrl(photoUrl);
+        }
+
         return mapper.toDTO(repo.save(existing));
     }
 
@@ -78,10 +84,19 @@ public class EmployeeService {
         log.info("Mitarbeiter deaktiviert: {}", id);
     }
 
+    private static final java.util.Set<String> ALLOWED_EXTENSIONS = java.util.Set.of("jpg", "jpeg", "png", "gif", "webp");
+    private static final long MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
+
     private String savePhoto(MultipartFile file, String employeeNumber) {
         try {
             String ext = FilenameUtils.getExtension(file.getOriginalFilename());
-            String filename = employeeNumber + "_" + UUID.randomUUID() + "." + ext;
+            if (ext == null || !ALLOWED_EXTENSIONS.contains(ext.toLowerCase())) {
+                throw new BusinessException("Ungültiger Dateityp. Erlaubt: " + ALLOWED_EXTENSIONS);
+            }
+            if (file.getSize() > MAX_PHOTO_SIZE) {
+                throw new BusinessException("Datei zu groß. Maximal 5 MB erlaubt.");
+            }
+            String filename = employeeNumber + "_" + UUID.randomUUID() + "." + ext.toLowerCase();
             Path uploadDir = Paths.get("./uploads/photos");
             Files.createDirectories(uploadDir);
             Path target = uploadDir.resolve(filename);

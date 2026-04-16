@@ -37,7 +37,22 @@ public class UserController {
         return userService.createUser(dto);
     }
 
-    @PatchMapping("/{id}/role")
+    @PutMapping("/{id}")
+    @Operation(summary = "Benutzer bearbeiten")
+    public UserDTO update(
+            @PathVariable Long id,
+            @RequestBody UpdateUserDTO dto) {
+        return userService.updateUser(id, dto);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Benutzer löschen (nur gesperrte)")
+    public void delete(@PathVariable Long id) {
+        userService.deleteUser(id);
+    }
+
+    @PutMapping("/{id}/role")
     @Operation(summary = "Rolle ändern")
     public UserDTO updateRole(
             @PathVariable Long id,
@@ -45,14 +60,14 @@ public class UserController {
         return userService.updateRole(id, role);
     }
 
-    @PatchMapping("/{id}/toggle-lock")
+    @PutMapping("/{id}/toggle-lock")
     @Operation(summary = "Account sperren / entsperren")
     public ResponseEntity<Void> toggleLock(@PathVariable Long id) {
         userService.toggleLock(id);
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}/reset-password")
+    @PutMapping("/{id}/reset-password")
     @Operation(summary = "Passwort zurücksetzen")
     public ResponseEntity<Void> resetPassword(
             @PathVariable Long id,

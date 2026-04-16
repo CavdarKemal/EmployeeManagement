@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB:       ${POSTGRES_DB:-employeemanagement}
       POSTGRES_USER:     ${POSTGRES_USER:-employeemanagement}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-employeemanagement_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -38,13 +38,21 @@ services:
     environment:
       SPRING_DATASOURCE_URL:      jdbc:postgresql://postgres:5432/${POSTGRES_DB:-employeemanagement}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-employeemanagement}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-employeemanagement_secret}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED:      "true"
-      APP_JWT_SECRET:             ${JWT_SECRET:-AendereIchInProduktionUnbedingt32Zeichen!}
+      APP_JWT_SECRET:             ${JWT_SECRET:?JWT_SECRET muss in .env gesetzt sein}
       APP_JWT_EXPIRATION_MS:      ${JWT_EXPIRATION_MS:-86400000}
       APP_UPLOAD_DIR:             /app/uploads
       JAVA_OPTS:                  "-Xms256m -Xmx512m"
+      # E-Mail-Benachrichtigungen (aus .env)
+      NOTIFICATION_ENABLED:       ${NOTIFICATION_ENABLED:-false}
+      NOTIFICATION_EMAIL:         ${NOTIFICATION_EMAIL:-admin@firma.de}
+      MAIL_HOST:                  ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT:                  ${MAIL_PORT:-587}
+      MAIL_USERNAME:              ${MAIL_USERNAME:-}
+      MAIL_PASSWORD:              ${MAIL_PASSWORD:-}
+      APP_DEPLOY_NOTIFY_SECRET:   ${DEPLOY_NOTIFY_SECRET:-}
     volumes:
       - uploads:/app/uploads
     ports:
@@ -64,7 +72,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
     container_name: employeemanagement-frontend
     restart: unless-stopped
     depends_on:

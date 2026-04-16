@@ -5,9 +5,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface SoftwareAssignmentRepository extends JpaRepository<SoftwareAssignment, Long> {
+
+    @Query("""
+        SELECT a FROM SoftwareAssignment a
+        JOIN FETCH a.software
+        WHERE a.employee.id = :employeeId
+          AND a.revokedDate IS NULL
+        """)
+    List<SoftwareAssignment> findActiveByEmployee(@Param("employeeId") Long employeeId);
 
     @Query("""
         SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END

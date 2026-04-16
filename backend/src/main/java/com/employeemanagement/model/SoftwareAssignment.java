@@ -35,7 +35,10 @@ public class SoftwareAssignment {
     @Column(name = "license_key", length = 255)
     private String licenseKey;
 
+    @Builder.Default
+    private boolean expired = false;
+
     public boolean isActive() {
-        return revokedDate == null;
+        return revokedDate == null && !expired;
     }
 }

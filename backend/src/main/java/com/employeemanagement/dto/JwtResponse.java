@@ -10,6 +10,9 @@ public class JwtResponse {
     private String token;
     private long expiresInMs;
     private String tokenType = "Bearer";
+    private String email;
+    private String displayName;
+    private String role;
 
     public JwtResponse(String token, long expiresInMs) {
         this.token = token;
