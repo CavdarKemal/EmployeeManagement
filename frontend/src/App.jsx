@@ -10,6 +10,7 @@ import SoftwarePage from "./pages/SoftwarePage.jsx";
 import { AdminPage } from "./pages/AdminPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import NotificationConfigPage from "./pages/NotificationConfigPage.jsx";
+import HelpPage from "./pages/HelpPage.jsx";
 
 // ── SVG Icons ────────────────────────────────────────────────
 const IconDashboard = () => (
@@ -56,6 +57,14 @@ const IconAdmin = () => (
   </svg>
 );
 
+const IconHelp = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.8" fill="none" opacity="0.9"/>
+    <path d="M7.5 7.5a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+    <circle cx="10" cy="15" r="0.8" fill="currentColor"/>
+  </svg>
+);
+
 const NAV = [
   { id: "dashboard", label: "Dashboard",          Icon: IconDashboard },
   { id: "employees", label: "Mitarbeiter",         Icon: IconEmployees },
@@ -64,6 +73,7 @@ const NAV = [
   { id: "admin",     label: "Benutzer",            Icon: IconAdmin,     adminOnly: true },
   { id: "audit",     label: "Audit-Log",           Icon: IconAdmin,     adminOnly: true },
   { id: "notify",    label: "Benachrichtigungen", Icon: IconAdmin,     adminOnly: true },
+  { id: "help",      label: "Hilfe",              Icon: IconHelp },
 ];
 
 const PAGE_SUBTITLES = {
@@ -74,6 +84,7 @@ const PAGE_SUBTITLES = {
   admin:     "Benutzerverwaltung",
   audit:     "Wer hat was wann geändert",
   notify:    "E-Mail-Einstellungen",
+  help:      "Benutzerhandbuch",
 };
 
 const MOBILE_BREAKPOINT = 768;
@@ -158,6 +169,7 @@ function Shell() {
     admin:     <AdminPage    toast={showToast} />,
     audit:     <AuditLogPage />,
     notify:    <NotificationConfigPage toast={showToast} />,
+    help:      <HelpPage />,
   };
 
   // Reset auf Dashboard, wenn die aktuelle Seite admin-only ist und der User kein Admin
