@@ -707,6 +707,9 @@ curl -s -X POST "https://em.cavdar.de/api/v1/admin/notifications/test?to=kemal@c
   -H "Authorization: Bearer $TOKEN"
 ```
 
+> **Hinweis:** Nach jedem Container-Neustart (z. B. nach einem Deployment) sind alle JWT-Tokens ungültig.
+> Der `TOKEN`-Befehl muss dann erneut ausgeführt werden, bevor API-Aufrufe funktionieren.
+
 ### Was wird benachrichtigt?
 
 | Benachrichtigung | Zeitpunkt | Inhalt |
