@@ -394,14 +394,14 @@ function HelpPage() {
               </div>
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 4 }}>E-Mail</div>
-                <div style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 6, padding: "6px 10px", fontSize: 10, color: "#64748b" }}>admin@firma.de</div>
+                <div style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 6, padding: "6px 10px", fontSize: 10, color: "#64748b" }}>benutzer@firma.de</div>
               </div>
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 4 }}>Passwort</div>
                 <div style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 6, padding: "6px 10px", fontSize: 10, color: "#64748b" }}>••••••••</div>
               </div>
               <div style={{ background: "#6366f1", borderRadius: 6, padding: "7px 0", textAlign: "center", fontSize: 10, fontWeight: 600, color: "#fff" }}>Anmelden</div>
-              <div style={{ textAlign: "center", fontSize: 8, color: "#475569", marginTop: 10 }}>Demo: admin@firma.de / admin123</div>
+
             </div>
           </div>
         }
@@ -409,7 +409,6 @@ function HelpPage() {
           "E-Mail-Adresse und Passwort eingeben und auf «Anmelden» klicken.",
           "Bei fehlgeschlagenem Login erscheint eine rote Fehlermeldung unterhalb der Eingabefelder.",
           "Das Passwort kann über das Augen-Symbol ein- und ausgeblendet werden.",
-          "Standard-Zugangsdaten für die Demo-Umgebung: admin@firma.de / admin123",
           "Nach erfolgreicher Anmeldung wird das Dashboard geöffnet.",
           "Die Sitzung bleibt bis zum manuellen Abmelden (Sidebar unten) aktiv.",
         ]}
