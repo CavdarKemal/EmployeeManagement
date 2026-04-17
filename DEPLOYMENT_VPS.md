@@ -679,7 +679,7 @@ NOTIFICATION_EMAIL=kemal@cavdar.de
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USERNAME=kemal@cavdar.de
-MAIL_PASSWORD=xxxx xxxx xxxx xxxx
+MAIL_PASSWORD=xxxx xxxx xxxx xxxx   # Google App-Passwort — NICHT hier eintragen, direkt in /opt/employeemanagement/.env auf dem VPS
 ```
 
 ### 3. Backend neu starten
