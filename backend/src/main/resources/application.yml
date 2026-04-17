@@ -39,6 +39,13 @@ spring:
       mail.smtp.starttls.enable: true
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, logfile
+  endpoint:
+    logfile:
+      enabled: true
   health:
     mail:
       enabled: false
@@ -68,6 +75,8 @@ app:
     secret: ${APP_DEPLOY_NOTIFY_SECRET:}
 
 logging:
+  file:
+    name: ${LOG_FILE:/opt/employeemanagement/logs/app.log}
   level:
     com.employeemanagement: DEBUG
     org.springframework.security: INFO
