@@ -130,9 +130,11 @@ function LoanDialog({ hardware, units, employees, onLoan, onReturn, onClose }) {
 function HardwareFormModal({ hardware, onSave, onClose, toast }) {
   const isEdit = Boolean(hardware?.id);
   const initial = hardware ?? { name: "", category: "LAPTOP", manufacturer: "", model: "", notes: "" };
-  const emptyUnit = { serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" };
+  const emptyUnit = { serialNumber: "" };
   const [form, setForm] = useState(initial);
   const [newUnits, setNewUnits] = useState(isEdit ? [] : [{ ...emptyUnit }]);
+  const [commonPurchaseDate, setCommonPurchaseDate] = useState("");
+  const [commonWarrantyUntil, setCommonWarrantyUntil] = useState("");
   const [existingUnits, setExistingUnits] = useState([]);
   const [loadingUnits, setLoadingUnits] = useState(isEdit);
   const [errors, setErrors] = useState({});
@@ -178,9 +180,9 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
 
   const unitPayload = (u) => ({
     serialNumber: u.serialNumber || null,
-    purchaseDate: u.purchaseDate || null,
-    warrantyUntil: u.warrantyUntil || null,
-    purchasePrice: u.purchasePrice ? Number(u.purchasePrice) : null,
+    purchaseDate: commonPurchaseDate || null,
+    warrantyUntil: commonWarrantyUntil || null,
+    purchasePrice: null,
     status: "AVAILABLE",
   });
 
@@ -305,31 +307,46 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
           </span>
           <Btn sm variant="secondary" onClick={addNewUnit}>+ Seriennummer hinzufügen</Btn>
         </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          padding: 10,
+          marginBottom: 10,
+          background: "#0f172a",
+          borderRadius: 8,
+          border: "1px solid #334155",
+        }}>
+          <Input label="Kaufdatum (für alle neuen Geräte)" type="date"
+                 value={commonPurchaseDate}
+                 onChange={(e) => setCommonPurchaseDate(e.target.value)} />
+          <Input label="Garantie bis (für alle neuen Geräte)" type="date"
+                 value={commonWarrantyUntil}
+                 onChange={(e) => setCommonWarrantyUntil(e.target.value)} />
+        </div>
+
         {newUnits.length === 0 ? (
           <div style={{ padding: 12, background: "#0f172a", borderRadius: 8, border: "1px dashed #334155", color: "#64748b", fontSize: 12 }}>
             Keine neuen Geräte — klicke „+ Seriennummer hinzufügen", um welche anzulegen.
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {newUnits.map((u, i) => {
               const removable = isEdit || newUnits.length > 1;
               return (
                 <div key={i} style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1fr 1fr auto",
+                  gridTemplateColumns: "1fr auto",
                   gap: 8,
                   padding: 10,
                   background: "#0f172a",
                   borderRadius: 8,
                   border: "1px solid #334155",
                 }}>
-                  <Input label="Seriennummer" value={u.serialNumber}
+                  <Input label={`Seriennummer ${i + 1}`} value={u.serialNumber}
                          onChange={(e) => setNewUnit(i, "serialNumber", e.target.value)}
                          placeholder={`Gerät ${i + 1}`} />
-                  <Input label="Kaufdatum" type="date" value={u.purchaseDate}
-                         onChange={(e) => setNewUnit(i, "purchaseDate", e.target.value)} />
-                  <Input label="Garantie bis" type="date" value={u.warrantyUntil}
-                         onChange={(e) => setNewUnit(i, "warrantyUntil", e.target.value)} />
                   <button
                     onClick={() => removeNewUnit(i)}
                     disabled={!removable}
