@@ -129,44 +129,66 @@ function LoanDialog({ hardware, units, employees, onLoan, onReturn, onClose }) {
 // ── Hardware Form Modal (mit dynamischer Unit-Liste) ───────────
 function HardwareFormModal({ hardware, onSave, onClose, toast }) {
   const isEdit = Boolean(hardware?.id);
-  const initial = hardware ?? {
-    name: "", category: "LAPTOP", manufacturer: "", model: "", notes: "",
-    units: [{ serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
-  };
+  const initial = hardware ?? { name: "", category: "LAPTOP", manufacturer: "", model: "", notes: "" };
+  const emptyUnit = { serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" };
   const [form, setForm] = useState(initial);
+  const [newUnits, setNewUnits] = useState(isEdit ? [] : [{ ...emptyUnit }]);
+  const [existingUnits, setExistingUnits] = useState([]);
+  const [loadingUnits, setLoadingUnits] = useState(isEdit);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (!isEdit) return;
+    setLoadingUnits(true);
+    api.get(`/hardware/${form.id}/units`)
+      .then((d) => setExistingUnits(d || []))
+      .catch(() => toast?.("Geräte konnten nicht geladen werden"))
+      .finally(() => setLoadingUnits(false));
+  }, [isEdit, form.id]);
+
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
 
-  const setUnit = (idx, k, v) => {
-    setForm((f) => ({ ...f, units: f.units.map((u, i) => (i === idx ? { ...u, [k]: v } : u)) }));
-    setErrors((e) => ({ ...e, [`unit_${idx}_${k}`]: "" }));
+  const setNewUnit = (idx, k, v) =>
+    setNewUnits((u) => u.map((x, i) => (i === idx ? { ...x, [k]: v } : x)));
+
+  const addNewUnit = () => setNewUnits((u) => [...u, { ...emptyUnit }]);
+
+  const removeNewUnit = (idx) =>
+    setNewUnits((u) => (isEdit || u.length > 1 ? u.filter((_, i) => i !== idx) : u));
+
+  const deleteExistingUnit = async (id) => {
+    if (!window.confirm("Gerät wirklich löschen?")) return;
+    try {
+      await api.delete(`/hardware/units/${id}`);
+      setExistingUnits((u) => u.filter((x) => x.id !== id));
+      toast?.("Gerät gelöscht");
+    } catch (err) {
+      toast?.(err?.message || "Löschen fehlgeschlagen");
+    }
   };
-
-  const addUnit = () => setForm((f) => ({
-    ...f,
-    units: [...f.units, { serialNumber: "", purchaseDate: "", warrantyUntil: "", purchasePrice: "" }],
-  }));
-
-  const removeUnit = (idx) => setForm((f) => ({
-    ...f,
-    units: f.units.length > 1 ? f.units.filter((_, i) => i !== idx) : f.units,
-  }));
 
   const validate = () => {
     const e = {};
     if (!form.name) e.name = "Pflichtfeld";
-    if (!isEdit && !form.units?.length) e.units = "Mindestens ein Gerät erforderlich";
+    if (!isEdit && !newUnits.length) e.units = "Mindestens ein Gerät erforderlich";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
+
+  const unitPayload = (u) => ({
+    serialNumber: u.serialNumber || null,
+    purchaseDate: u.purchaseDate || null,
+    warrantyUntil: u.warrantyUntil || null,
+    purchasePrice: u.purchasePrice ? Number(u.purchasePrice) : null,
+    status: "AVAILABLE",
+  });
 
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload = {
+      const meta = {
         name: form.name,
         category: form.category,
         manufacturer: form.manufacturer,
@@ -175,16 +197,13 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
       };
       let result;
       if (isEdit) {
-        result = await api.put(`/hardware/${form.id}`, payload);
+        await api.put(`/hardware/${form.id}`, meta);
+        for (const u of newUnits) {
+          await api.post(`/hardware/${form.id}/units`, unitPayload(u));
+        }
+        result = await api.get(`/hardware/${form.id}`);
       } else {
-        payload.units = form.units.map((u) => ({
-          serialNumber: u.serialNumber || null,
-          purchaseDate: u.purchaseDate || null,
-          warrantyUntil: u.warrantyUntil || null,
-          purchasePrice: u.purchasePrice ? Number(u.purchasePrice) : null,
-          status: "AVAILABLE",
-        }));
-        result = await api.post("/hardware", payload);
+        result = await api.post("/hardware", { ...meta, units: newUnits.map(unitPayload) });
       }
       onSave(result);
     } catch (err) {
@@ -213,52 +232,125 @@ function HardwareFormModal({ hardware, onSave, onClose, toast }) {
         </div>
       </div>
 
-      {!isEdit && (
+      {isEdit && (
         <div style={{ marginTop: 22 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ marginBottom: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
-              Geräte ({form.units.length})
+              Vorhandene Geräte ({existingUnits.length})
             </span>
-            <Btn sm variant="secondary" onClick={addUnit}>+ Seriennummer hinzufügen</Btn>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {form.units.map((u, i) => (
-              <div key={i} style={{
-                display: "grid",
-                gridTemplateColumns: "2fr 1fr 1fr auto",
-                gap: 8,
-                padding: 10,
-                background: "#0f172a",
-                borderRadius: 8,
-                border: "1px solid #334155",
-              }}>
-                <Input label="Seriennummer" value={u.serialNumber}
-                       onChange={(e) => setUnit(i, "serialNumber", e.target.value)}
-                       placeholder={`Gerät ${i + 1}`} />
-                <Input label="Kaufdatum" type="date" value={u.purchaseDate}
-                       onChange={(e) => setUnit(i, "purchaseDate", e.target.value)} />
-                <Input label="Garantie bis" type="date" value={u.warrantyUntil}
-                       onChange={(e) => setUnit(i, "warrantyUntil", e.target.value)} />
-                <button
-                  onClick={() => removeUnit(i)}
-                  disabled={form.units.length === 1}
-                  title={form.units.length === 1 ? "Mindestens 1 Gerät erforderlich" : "Entfernen"}
-                  style={{
-                    alignSelf: "end",
-                    padding: "8px 10px",
-                    background: "transparent",
-                    border: "1px solid #334155",
-                    borderRadius: 6,
-                    color: form.units.length === 1 ? "#334155" : "#ef4444",
-                    cursor: form.units.length === 1 ? "not-allowed" : "pointer",
-                    fontSize: 16,
-                  }}
-                >×</button>
-              </div>
-            ))}
-          </div>
+          {loadingUnits ? (
+            <div style={{ padding: 12, color: "#64748b", fontSize: 12 }}>Lade Geräte …</div>
+          ) : existingUnits.length === 0 ? (
+            <div style={{ padding: 12, background: "#0f172a", borderRadius: 8, border: "1px solid #334155", color: "#64748b", fontSize: 12 }}>
+              Keine Geräte vorhanden
+            </div>
+          ) : (
+            <div style={{ background: "#0f172a", borderRadius: 8, border: "1px solid #334155", overflow: "hidden" }}>
+              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", fontFamily: "'DM Sans', sans-serif" }}>
+                <thead>
+                  <tr style={{ color: "#64748b", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <th style={{ padding: "8px 10px", textAlign: "left" }}>Asset-Tag</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left" }}>Seriennummer</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left" }}>Status</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left" }}>Garantie</th>
+                    <th style={{ padding: "8px 10px" }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {existingUnits.map((u) => {
+                    const st = STATUS[u.status] || { color: "#94a3b8", bg: "rgba(148,163,184,0.12)", label: u.status };
+                    return (
+                      <tr key={u.id} style={{ borderTop: "1px solid #334155", color: "#f1f5f9" }}>
+                        <td style={{ padding: "8px 10px" }}>
+                          <code style={{ color: "#a5b4fc", fontFamily: "'JetBrains Mono', monospace" }}>{u.assetTag}</code>
+                        </td>
+                        <td style={{ padding: "8px 10px" }}>{u.serialNumber || "—"}</td>
+                        <td style={{ padding: "8px 10px" }}>
+                          <Badge label={st.label} color={st.color} bg={st.bg} sm />
+                        </td>
+                        <td style={{ padding: "8px 10px", color: "#94a3b8" }}>
+                          {u.warrantyUntil ? new Date(u.warrantyUntil).toLocaleDateString("de-DE") : "—"}
+                        </td>
+                        <td style={{ padding: "8px 10px", textAlign: "right" }}>
+                          <button
+                            onClick={() => deleteExistingUnit(u.id)}
+                            disabled={u.status === "LOANED"}
+                            title={u.status === "LOANED" ? "Ausgeliehenes Gerät kann nicht gelöscht werden" : "Entfernen"}
+                            style={{
+                              padding: "4px 8px",
+                              background: "transparent",
+                              border: "1px solid #334155",
+                              borderRadius: 6,
+                              color: u.status === "LOANED" ? "#334155" : "#ef4444",
+                              cursor: u.status === "LOANED" ? "not-allowed" : "pointer",
+                              fontSize: 14,
+                            }}
+                          >×</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
+
+      <div style={{ marginTop: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif" }}>
+            {isEdit ? `Neue Geräte (${newUnits.length})` : `Geräte (${newUnits.length})`}
+          </span>
+          <Btn sm variant="secondary" onClick={addNewUnit}>+ Seriennummer hinzufügen</Btn>
+        </div>
+        {newUnits.length === 0 ? (
+          <div style={{ padding: 12, background: "#0f172a", borderRadius: 8, border: "1px dashed #334155", color: "#64748b", fontSize: 12 }}>
+            Keine neuen Geräte — klicke „+ Seriennummer hinzufügen", um welche anzulegen.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {newUnits.map((u, i) => {
+              const removable = isEdit || newUnits.length > 1;
+              return (
+                <div key={i} style={{
+                  display: "grid",
+                  gridTemplateColumns: "2fr 1fr 1fr auto",
+                  gap: 8,
+                  padding: 10,
+                  background: "#0f172a",
+                  borderRadius: 8,
+                  border: "1px solid #334155",
+                }}>
+                  <Input label="Seriennummer" value={u.serialNumber}
+                         onChange={(e) => setNewUnit(i, "serialNumber", e.target.value)}
+                         placeholder={`Gerät ${i + 1}`} />
+                  <Input label="Kaufdatum" type="date" value={u.purchaseDate}
+                         onChange={(e) => setNewUnit(i, "purchaseDate", e.target.value)} />
+                  <Input label="Garantie bis" type="date" value={u.warrantyUntil}
+                         onChange={(e) => setNewUnit(i, "warrantyUntil", e.target.value)} />
+                  <button
+                    onClick={() => removeNewUnit(i)}
+                    disabled={!removable}
+                    title={removable ? "Entfernen" : "Mindestens 1 Gerät erforderlich"}
+                    style={{
+                      alignSelf: "end",
+                      padding: "8px 10px",
+                      background: "transparent",
+                      border: "1px solid #334155",
+                      borderRadius: 6,
+                      color: removable ? "#ef4444" : "#334155",
+                      cursor: removable ? "pointer" : "not-allowed",
+                      fontSize: 16,
+                    }}
+                  >×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <Btn variant="ghost" onClick={onClose}>Abbrechen</Btn>
