@@ -19,7 +19,7 @@ CMD ["mvn", "test", "-B"]
 # ── Stage 3: Development ────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre AS development
 WORKDIR /app
-COPY --from=build /app/target/employeemanagement-backend-1.0.0.jar app.jar
+COPY --from=build /app/target/backend-1.0.0.jar app.jar
 
 # Spring DevTools für Hot-Reload
 ENV JAVA_OPTS="-Xms128m -Xmx256m -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
@@ -34,7 +34,7 @@ RUN addgroup -S employeemanagement && adduser -S employeemanagement -G employeem
 WORKDIR /app
 
 # Nur das fertige JAR kopieren
-COPY --from=build /app/target/employeemanagement-backend-1.0.0.jar app.jar
+COPY --from=build /app/target/backend-1.0.0.jar app.jar
 RUN chown employeemanagement:employeemanagement app.jar
 
 # Upload-Verzeichnis anlegen

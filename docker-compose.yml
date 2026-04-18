@@ -29,7 +29,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        JAR_FILE: target/employeemanagement-backend-1.0.0.jar
+        JAR_FILE: target/backend-1.0.0.jar
     container_name: employeemanagement-backend
     restart: unless-stopped
     depends_on:
@@ -84,8 +84,12 @@ services:
       - employeemanagement-net
 
 volumes:
+  # pgdata ist als external markiert: `docker compose down -v` löscht es NICHT.
+  # Einmalig erzeugen (falls noch nicht vorhanden):
+  #   docker volume create employeemanagement-pgdata
   pgdata:
     name: employeemanagement-pgdata
+    external: true
   uploads:
     name: employeemanagement-uploads
 

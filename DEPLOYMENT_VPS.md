@@ -38,7 +38,7 @@ cd E:/Projekte/ClaudeCode/EmployeeManagement/backend
 ```
 
 Erwartet am Ende: `BUILD SUCCESS`. Das erzeugt ein frisches JAR unter
-`backend/target/employeemanagement-backend-1.0.0.jar`, das der Docker-Build
+`backend/target/backend-1.0.0.jar`, das der Docker-Build
 anschließend nutzt.
 
 > Wenn nur Frontend-Code (`frontend/src/...`) geändert wurde, **kannst du
@@ -613,8 +613,11 @@ docker compose restart
 # Alles stoppen (App offline)
 docker compose down
 
-# Alles stoppen + Datenbank-Volume löschen (ACHTUNG: alle Daten weg!)
+# Alles stoppen + Container-Volumes löschen (uploads). DB bleibt, weil `pgdata` external ist.
 docker compose down -v
+
+# DB wirklich löschen (letzter Ausweg — alle Daten weg!):
+# docker compose down -v && docker volume rm employeemanagement-pgdata
 ```
 
 ---
