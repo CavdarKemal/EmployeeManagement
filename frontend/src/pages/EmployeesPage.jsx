@@ -29,6 +29,14 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [photo, setPhoto]   = useState(null);
+  const isCreate = !employee;
+
+  useEffect(() => {
+    if (!isCreate) return;
+    api.get("/employees/next-number")
+      .then((d) => { if (d?.nextNumber) setForm((f) => ({ ...f, employeeNumber: d.nextNumber })); })
+      .catch(() => toast?.("Nächste Mitarbeiter-Nr. konnte nicht geladen werden"));
+  }, [isCreate]);
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
 
@@ -69,7 +77,7 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
   return (
     <Modal title={employee ? "Mitarbeiter bearbeiten" : "Neuer Mitarbeiter"} onClose={onClose} width={600}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <Input label="Mitarbeiter-Nr."   value={form.employeeNumber} onChange={(e) => set("employeeNumber", e.target.value)} required error={errors.employeeNumber} placeholder="EMP-001" />
+        <Input label="Mitarbeiter-Nr." value={form.employeeNumber} onChange={(e) => set("employeeNumber", e.target.value)} required error={errors.employeeNumber} placeholder="EMP-001" readOnly={isCreate} hint={isCreate ? "Wird automatisch vergeben" : undefined} />
         <Input label="Einstellungsdatum" type="date" value={form.hireDate} onChange={(e) => set("hireDate", e.target.value)} required error={errors.hireDate} />
         <Input label="Vorname"  value={form.firstName} onChange={(e) => set("firstName", e.target.value)} required error={errors.firstName} />
         <Input label="Nachname" value={form.lastName}  onChange={(e) => set("lastName",  e.target.value)} required error={errors.lastName} />

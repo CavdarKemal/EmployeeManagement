@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const Input = ({ label, value, onChange, type = "text", placeholder, required, error, hint }) => {
+const Input = ({ label, value, onChange, type = "text", placeholder, required, error, hint, readOnly }) => {
   const [focused, setFocused] = useState(false);
 
   return (
@@ -23,6 +23,7 @@ const Input = ({ label, value, onChange, type = "text", placeholder, required, e
         onChange={onChange}
         placeholder={placeholder}
         required={required}
+        readOnly={readOnly}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
@@ -30,14 +31,15 @@ const Input = ({ label, value, onChange, type = "text", placeholder, required, e
           borderRadius: "8px",
           border: `1px solid ${error ? "#ef4444" : focused ? "#6366f1" : "#334155"}`,
           fontSize: 13,
-          color: "#f1f5f9",
+          color: readOnly ? "#94a3b8" : "#f1f5f9",
           outline: "none",
-          background: "#0f172a",
+          background: readOnly ? "#1e293b" : "#0f172a",
           boxSizing: "border-box",
           width: "100%",
           fontFamily: "'DM Sans', sans-serif",
-          boxShadow: focused ? "0 0 0 3px rgba(99,102,241,0.15)" : "none",
+          boxShadow: focused && !readOnly ? "0 0 0 3px rgba(99,102,241,0.15)" : "none",
           transition: "border-color 150ms ease, box-shadow 150ms ease",
+          cursor: readOnly ? "not-allowed" : "text",
         }}
       />
       {hint  && <span style={{ fontSize: 11, color: "#94a3b8" }}>{hint}</span>}

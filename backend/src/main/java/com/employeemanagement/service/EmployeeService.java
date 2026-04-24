@@ -40,6 +40,13 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Mitarbeiter", id));
     }
 
+    @Transactional(readOnly = true)
+    public String getNextEmployeeNumber() {
+        Integer max = repo.findMaxEmployeeNumber();
+        int next = (max == null ? 0 : max) + 1;
+        return String.format("EMP-%03d", next);
+    }
+
     public EmployeeDTO create(EmployeeDTO dto, MultipartFile photo) {
         if (repo.existsByEmail(dto.getEmail()))
             throw new BusinessException("E-Mail bereits vorhanden: " + dto.getEmail());
