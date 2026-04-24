@@ -92,18 +92,20 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
             <Input label="Land" value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="Deutschland" />
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10 }}>
-          <input
-            type="checkbox"
-            id="active"
-            checked={form.active}
-            onChange={(e) => set("active", e.target.checked)}
-            style={{ accentColor: "#6366f1" }}
-          />
-          <label htmlFor="active" style={{ fontSize: 13, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
-            Aktiv
-          </label>
-        </div>
+        {employee && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10 }}>
+            <input
+              type="checkbox"
+              id="active"
+              checked={form.active}
+              onChange={(e) => set("active", e.target.checked)}
+              style={{ accentColor: "#6366f1" }}
+            />
+            <label htmlFor="active" style={{ fontSize: 13, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
+              Aktiv
+            </label>
+          </div>
+        )}
       </div>
       <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
         {form.photoUrl && !photo && (
@@ -193,13 +195,14 @@ function EmployeesPage({ toast }) {
   };
 
   const handleSave = (saved) => {
+    const wasEdit = !!editEmp;
     setEmployees((prev) => {
       const exists = prev.find((e) => e.id === saved.id);
       return exists ? prev.map((e) => (e.id === saved.id ? saved : e)) : [...prev, saved];
     });
     setShowForm(false);
     setEditEmp(null);
-    toast(saved.id ? "Mitarbeiter gespeichert ✅" : "Mitarbeiter angelegt ✅");
+    toast(wasEdit ? "Mitarbeiter gespeichert ✅" : "Mitarbeiter angelegt ✅");
   };
 
   return (
