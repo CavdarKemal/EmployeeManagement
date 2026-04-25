@@ -44,7 +44,7 @@ public class EmployeeService {
     public String getNextEmployeeNumber() {
         Integer max = repo.findMaxEmployeeNumber();
         int next = (max == null ? 0 : max) + 1;
-        return String.format("EMP-%03d", next);
+        return String.format("EMP-%04d", next);
     }
 
     public EmployeeDTO create(EmployeeDTO dto, MultipartFile photo) {
