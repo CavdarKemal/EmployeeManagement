@@ -656,15 +656,6 @@ function HardwarePage({ toast }) {
         <SortButton label="Gesamt" sortKey="totalQuantity" sortConfig={sortConfig} onSort={requestSort} />
       </div>
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>Sortieren:</span>
-        <SortButton label="Name" sortKey="name" sortConfig={sortConfig} onSort={requestSort} />
-        <SortButton label="Kategorie" sortKey="category" sortConfig={sortConfig} onSort={requestSort} />
-        <SortButton label="Hersteller" sortKey="manufacturer" sortConfig={sortConfig} onSort={requestSort} />
-        <SortButton label="Verfügbar" sortKey="availableQuantity" sortConfig={sortConfig} onSort={requestSort} />
-        <SortButton label="Gesamt" sortKey="totalQuantity" sortConfig={sortConfig} onSort={requestSort} />
-      </div>
-
       <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
 
       <div style={{
