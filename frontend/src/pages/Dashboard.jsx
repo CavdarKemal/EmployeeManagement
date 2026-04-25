@@ -62,7 +62,7 @@ function Dashboard() {
   ).map(([name, value]) => ({ name, value }));
 
   const hwStatusData = Object.entries(
-    hardware.reduce((a, h) => ({ ...a, [h.status]: (a[h.status] || 0) + 1 }), {})
+    hardware.flatMap((h) => h.units || []).reduce((a, u) => ({ ...a, [u.status]: (a[u.status] || 0) + 1 }), {})
   ).map(([status, count]) => ({ name: HW_STATUS_LABELS[status] || status, value: count, fill: HW_STATUS_COLORS[status] || "#94a3b8" }));
 
   const licenseData = software.map((sw) => ({

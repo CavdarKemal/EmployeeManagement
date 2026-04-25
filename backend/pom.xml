@@ -12,7 +12,7 @@
     </parent>
 
     <groupId>com.employeemanagement</groupId>
-    <artifactId>employeemanagement-backend</artifactId>
+    <artifactId>backend</artifactId>
     <version>1.0.0</version>
     <name>EmployeeManagement Backend</name>
 

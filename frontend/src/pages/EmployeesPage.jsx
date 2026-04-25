@@ -29,6 +29,14 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [photo, setPhoto]   = useState(null);
+  const isCreate = !employee;
+
+  useEffect(() => {
+    if (!isCreate) return;
+    api.get("/employees/next-number")
+      .then((d) => { if (d?.nextNumber) setForm((f) => ({ ...f, employeeNumber: d.nextNumber })); })
+      .catch(() => toast?.("Nächste Mitarbeiter-Nr. konnte nicht geladen werden"));
+  }, [isCreate]);
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: "" })); };
 
@@ -69,7 +77,7 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
   return (
     <Modal title={employee ? "Mitarbeiter bearbeiten" : "Neuer Mitarbeiter"} onClose={onClose} width={600}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <Input label="Mitarbeiter-Nr."   value={form.employeeNumber} onChange={(e) => set("employeeNumber", e.target.value)} required error={errors.employeeNumber} placeholder="EMP-001" />
+        <Input label="Mitarbeiter-Nr." value={form.employeeNumber} onChange={(e) => set("employeeNumber", e.target.value)} required error={errors.employeeNumber} placeholder="EMP-001" readOnly={isCreate} hint={isCreate ? "Wird automatisch vergeben" : undefined} />
         <Input label="Einstellungsdatum" type="date" value={form.hireDate} onChange={(e) => set("hireDate", e.target.value)} required error={errors.hireDate} />
         <Input label="Vorname"  value={form.firstName} onChange={(e) => set("firstName", e.target.value)} required error={errors.firstName} />
         <Input label="Nachname" value={form.lastName}  onChange={(e) => set("lastName",  e.target.value)} required error={errors.lastName} />
@@ -92,18 +100,20 @@ function EmployeeFormModal({ employee, onSave, onClose, toast }) {
             <Input label="Land" value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="Deutschland" />
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10 }}>
-          <input
-            type="checkbox"
-            id="active"
-            checked={form.active}
-            onChange={(e) => set("active", e.target.checked)}
-            style={{ accentColor: "#6366f1" }}
-          />
-          <label htmlFor="active" style={{ fontSize: 13, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
-            Aktiv
-          </label>
-        </div>
+        {employee && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10 }}>
+            <input
+              type="checkbox"
+              id="active"
+              checked={form.active}
+              onChange={(e) => set("active", e.target.checked)}
+              style={{ accentColor: "#6366f1" }}
+            />
+            <label htmlFor="active" style={{ fontSize: 13, color: "#f1f5f9", fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
+              Aktiv
+            </label>
+          </div>
+        )}
       </div>
       <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
         {form.photoUrl && !photo && (
@@ -193,13 +203,14 @@ function EmployeesPage({ toast }) {
   };
 
   const handleSave = (saved) => {
+    const wasEdit = !!editEmp;
     setEmployees((prev) => {
       const exists = prev.find((e) => e.id === saved.id);
       return exists ? prev.map((e) => (e.id === saved.id ? saved : e)) : [...prev, saved];
     });
     setShowForm(false);
     setEditEmp(null);
-    toast(saved.id ? "Mitarbeiter gespeichert ✅" : "Mitarbeiter angelegt ✅");
+    toast(wasEdit ? "Mitarbeiter gespeichert ✅" : "Mitarbeiter angelegt ✅");
   };
 
   return (

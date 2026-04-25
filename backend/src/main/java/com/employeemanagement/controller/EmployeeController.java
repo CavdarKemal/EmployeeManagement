@@ -30,6 +30,12 @@ public class EmployeeController {
         return ResponseEntity.ok(service.findAll(pageable, search));
     }
 
+    @GetMapping("/next-number")
+    @Operation(summary = "Nächste freie Mitarbeiternummer vorschlagen")
+    public ResponseEntity<java.util.Map<String, String>> nextNumber() {
+        return ResponseEntity.ok(java.util.Map.of("nextNumber", service.getNextEmployeeNumber()));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Mitarbeiter per ID abrufen")
     public ResponseEntity<EmployeeDTO> getById(@PathVariable Long id) {

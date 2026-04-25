@@ -158,6 +158,21 @@ der Endpunkt filtert auf `role = ADMIN AND enabled = true`.
 
 ---
 
+## Passwort-Übersicht (Orientierungshilfe)
+
+| Passwort | Wo gespeichert | Wofür |
+|---|---|---|
+| `admin123` (App-Login) | Datenbank (BCrypt) | Login in die Anwendung |
+| `POSTGRES_PASSWORD` | `.env` auf VPS | Docker-interne DB-Verbindung |
+| `JWT_SECRET` | `.env` auf VPS | Token-Signierung, kein Login |
+| `DEPLOY_NOTIFY_SECRET` | `.env` VPS + GitHub Secret | Webhook-Authentifizierung |
+| `MAIL_PASSWORD` | `.env` auf VPS | Gmail SMTP — nur für Mailversand |
+
+Das `MAIL_PASSWORD` ist ein **Google App-Passwort** (16 Zeichen, nur einmal angezeigt).
+Es hat nichts mit dem App-Login oder dem Google-Account-Passwort zu tun.
+
+---
+
 ## Secret rotieren
 
 Wenn das Secret geleakt wurde oder zur Routine erneuert werden soll:

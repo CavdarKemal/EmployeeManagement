@@ -38,7 +38,7 @@ cd E:/Projekte/ClaudeCode/EmployeeManagement/backend
 ```
 
 Erwartet am Ende: `BUILD SUCCESS`. Das erzeugt ein frisches JAR unter
-`backend/target/employeemanagement-backend-1.0.0.jar`, das der Docker-Build
+`backend/target/backend-1.0.0.jar`, das der Docker-Build
 anschließend nutzt.
 
 > Wenn nur Frontend-Code (`frontend/src/...`) geändert wurde, **kannst du
@@ -117,9 +117,7 @@ cd /opt/employeemanagement
 ### Schritt 3 — Datenbank-Backup (Sicherheitsnetz, Pflicht!)
 
 ```bash
-docker exec employeemanagement-postgres \
-  pg_dump -U employeemanagement employeemanagement \
-  > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
+docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement > /opt/backups/employeemanagement/db_$(date +%Y%m%d_%H%M%S).sql
 
 # Kontrolle:
 ls -lh /opt/backups/employeemanagement/ | tail -3
@@ -553,9 +551,7 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="/opt/backups/employeemanagement"
 
 # PostgreSQL Dump — komplette Datenbank als SQL-Datei sichern
-docker exec employeemanagement-postgres \
-  pg_dump -U employeemanagement employeemanagement \
-  > "$BACKUP_DIR/db_$TIMESTAMP.sql"
+docker exec employeemanagement-postgres pg_dump -U employeemanagement employeemanagement > "$BACKUP_DIR/db_$TIMESTAMP.sql"
 
 # Alte Backups löschen (älter als 7 Tage)
 find "$BACKUP_DIR" -name "db_*.sql" -mtime +7 -delete
@@ -617,8 +613,11 @@ docker compose restart
 # Alles stoppen (App offline)
 docker compose down
 
-# Alles stoppen + Datenbank-Volume löschen (ACHTUNG: alle Daten weg!)
+# Alles stoppen + Container-Volumes löschen (uploads). DB bleibt, weil `pgdata` external ist.
 docker compose down -v
+
+# DB wirklich löschen (letzter Ausweg — alle Daten weg!):
+# docker compose down -v && docker volume rm employeemanagement-pgdata
 ```
 
 ---
@@ -683,7 +682,7 @@ NOTIFICATION_EMAIL=kemal@cavdar.de
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USERNAME=kemal@cavdar.de
-MAIL_PASSWORD=tgix hyko knho esyq
+MAIL_PASSWORD=xxxx xxxx xxxx xxxx   # Google App-Passwort — NICHT hier eintragen, direkt in /opt/employeemanagement/.env auf dem VPS
 ```
 
 ### 3. Backend neu starten
@@ -699,13 +698,13 @@ In der App: **Benachrichtigungen** → E-Mail-Adresse eingeben → "Test senden"
 Oder per curl:
 
 ```bash
-TOKEN=$(curl -s https://em.cavdar.de/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@firma.de","password":"admin123"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+TOKEN=$(curl -s https://em.cavdar.de/api/v1/auth/login -H "Content-Type: application/json" -d '{"email":"admin@firma.de","password":"admin123"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
 
-curl -s -X POST "https://em.cavdar.de/api/v1/admin/notifications/test?to=kemal@cavdar.de" \
-  -H "Authorization: Bearer $TOKEN"
+curl -s -X POST "https://em.cavdar.de/api/v1/admin/notifications/test?to=kemal@cavdar.de" -H "Authorization: Bearer $TOKEN"
 ```
+
+> **Hinweis:** Nach jedem Container-Neustart (z. B. nach einem Deployment) sind alle JWT-Tokens ungültig.
+> Der `TOKEN`-Befehl muss dann erneut ausgeführt werden, bevor API-Aufrufe funktionieren.
 
 ### Was wird benachrichtigt?
 
@@ -781,9 +780,7 @@ Danach verbindet `ssh vps` sich direkt.
 docker logs employeemanagement-backend --tail 100
 ```
 Häufige Ursachen:
-- **Flyway-Checksum-Fehler:** Eine bereits angewandte Migration wurde nachträglich
-  geändert. Fix: `docker exec employeemanagement-postgres psql -U employeemanagement
-  -d employeemanagement -c "DELETE FROM flyway_schema_history WHERE version = 'X';"`
+- **Flyway-Checksum-Fehler:** Eine bereits angewandte Migration wurde nachträglich geändert. Fix: `docker exec employeemanagement-postgres psql -U employeemanagement -d employeemanagement -c "DELETE FROM flyway_schema_history WHERE version = 'X';"`
 - **Port belegt:** `docker compose down` und dann `docker compose up -d`
 
 ### Frontend zeigt alte Version
@@ -793,9 +790,7 @@ Häufige Ursachen:
 ### Datenbank zurücksetzen (letzter Ausweg)
 ```bash
 # Backup einspielen:
-cat /opt/backups/employeemanagement/db_YYYYMMDD_HHMMSS.sql | \
-  docker exec -i employeemanagement-postgres \
-  psql -U employeemanagement -d employeemanagement
+cat /opt/backups/employeemanagement/db_YYYYMMDD_HHMMSS.sql | docker exec -i employeemanagement-postgres psql -U employeemanagement -d employeemanagement
 
 # Oder komplett neu starten (ACHTUNG: alle Daten weg!):
 docker compose down -v
