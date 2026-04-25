@@ -151,7 +151,7 @@ function EmployeesPage({ toast }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/employees?size=200").then((data) => {
+    api.get("/employees?size=20000").then((data) => {
       if (data?.content) setEmployees(data.content);
     }).catch((err) => {
       toast?.("Mitarbeiter konnten nicht geladen werden");
@@ -684,7 +684,7 @@ function EmployeesPage({ toast }) {
         <ImportDialog
           title="Mitarbeiter importieren"
           endpoint="employees"
-          onDone={() => { api.get("/employees?size=200").then((d) => { if (d?.content) setEmployees(d.content); }); }}
+          onDone={() => { api.get("/employees?size=2000").then((d) => { if (d?.content) setEmployees(d.content); }); }}
           onClose={() => setShowImport(false)}
           toast={toast}
         />
