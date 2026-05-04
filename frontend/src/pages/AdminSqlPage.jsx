@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql, PostgreSQL } from "@codemirror/lang-sql";
 import { keymap } from "@codemirror/view";
+import { Prec } from "@codemirror/state";
 import { sqlApi } from "../api/sql.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 
@@ -88,20 +89,23 @@ export default function AdminSqlPage({ toast }) {
   const cmExtensions = useMemo(
     () => [
       sql({ dialect: PostgreSQL, schema: schemaForCM, upperCaseKeywords: true }),
-      keymap.of([
-        {
-          key: "Ctrl-Enter",
-          mac: "Cmd-Enter",
-          preventDefault: true,
-          run: (view) => {
-            const cursor = view.state.selection.main.head;
-            const text = view.state.doc.toString();
-            const q = findStatementAt(text, cursor);
-            runQueryRef.current?.(q);
-            return true;
+      // Prec.highest sorgt dafür, dass unser Mod-Enter VOR dem
+      // defaultKeymap-Enter (Newline einfügen) ankommt.
+      Prec.highest(
+        keymap.of([
+          {
+            key: "Mod-Enter",
+            preventDefault: true,
+            run: (view) => {
+              const cursor = view.state.selection.main.head;
+              const text = view.state.doc.toString();
+              const q = findStatementAt(text, cursor);
+              runQueryRef.current?.(q);
+              return true;
+            },
           },
-        },
-      ]),
+        ]),
+      ),
     ],
     [schemaForCM],
   );
