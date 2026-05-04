@@ -10,6 +10,7 @@ import SoftwarePage from "./pages/SoftwarePage.jsx";
 import { AdminPage } from "./pages/AdminPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import NotificationConfigPage from "./pages/NotificationConfigPage.jsx";
+import AdminSqlPage from "./pages/AdminSqlPage.jsx";
 import HelpPage from "./pages/HelpPage.jsx";
 
 // ── SVG Icons ────────────────────────────────────────────────
@@ -65,6 +66,14 @@ const IconHelp = () => (
   </svg>
 );
 
+const IconSql = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <ellipse cx="10" cy="4.5" rx="6" ry="2" stroke="currentColor" strokeWidth="1.6" fill="none"/>
+    <path d="M4 4.5v5c0 1.1 2.7 2 6 2s6-0.9 6-2v-5" stroke="currentColor" strokeWidth="1.6" fill="none"/>
+    <path d="M4 9.5v5c0 1.1 2.7 2 6 2s6-0.9 6-2v-5" stroke="currentColor" strokeWidth="1.6" fill="none"/>
+  </svg>
+);
+
 const NAV = [
   { id: "dashboard", label: "Dashboard",          Icon: IconDashboard },
   { id: "employees", label: "Mitarbeiter",         Icon: IconEmployees },
@@ -73,6 +82,7 @@ const NAV = [
   { id: "admin",     label: "Benutzer",            Icon: IconAdmin,     adminOnly: true },
   { id: "audit",     label: "Audit-Log",           Icon: IconAdmin,     adminOnly: true },
   { id: "notify",    label: "Benachrichtigungen", Icon: IconAdmin,     adminOnly: true },
+  { id: "sql",       label: "SQL Editor",         Icon: IconSql,       adminOnly: true },
   { id: "help",      label: "Hilfe",              Icon: IconHelp },
 ];
 
@@ -84,6 +94,7 @@ const PAGE_SUBTITLES = {
   admin:     "Benutzerverwaltung",
   audit:     "Wer hat was wann geändert",
   notify:    "E-Mail-Einstellungen",
+  sql:       "SQL-Editor mit Read-/Transaktions-Modus",
   help:      "Benutzerhandbuch",
 };
 
@@ -169,6 +180,7 @@ function Shell() {
     admin:     <AdminPage    toast={showToast} />,
     audit:     <AuditLogPage />,
     notify:    <NotificationConfigPage toast={showToast} />,
+    sql:       <AdminSqlPage toast={showToast} />,
     help:      <HelpPage />,
   };
 

@@ -73,6 +73,11 @@ app:
     return-days: 7
   deploy-notify:
     secret: ${APP_DEPLOY_NOTIFY_SECRET:}
+  sql-editor:
+    statement-timeout-seconds: ${SQL_EDITOR_TIMEOUT:30}
+    max-rows: ${SQL_EDITOR_MAX_ROWS:5000}
+    session-idle-seconds: ${SQL_EDITOR_IDLE_SECONDS:300}
+    history-keep-per-user: ${SQL_EDITOR_HISTORY_KEEP:1000}
 
 logging:
   file:
