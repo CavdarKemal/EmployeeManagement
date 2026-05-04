@@ -12,4 +12,6 @@ export const sqlApi = {
 
   loadSchema:      ()                  => api.get(`${BASE}/schema`),
   loadHistory:     (limit = 50)        => api.get(`${BASE}/history?limit=${limit}`),
+  deleteHistory:   ()                  => api.delete(`${BASE}/history`),
+  deleteHistoryEntry: (id)             => api.delete(`${BASE}/history/${id}`),
 };

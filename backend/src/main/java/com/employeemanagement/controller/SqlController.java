@@ -73,6 +73,20 @@ public class SqlController {
         return ResponseEntity.ok(service.loadHistory(currentUser(), limit));
     }
 
+    @DeleteMapping("/history")
+    @Operation(summary = "Komplette History des aktuellen Users löschen")
+    public ResponseEntity<Void> deleteHistory() {
+        service.deleteHistory(currentUser());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/history/{id}")
+    @Operation(summary = "Einzelnen History-Eintrag löschen (nur eigene)")
+    public ResponseEntity<Void> deleteHistoryEntry(@PathVariable Long id) {
+        boolean deleted = service.deleteHistoryEntry(currentUser(), id);
+        return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
     private static String currentUser() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         return auth == null ? "unknown" : auth.getName();

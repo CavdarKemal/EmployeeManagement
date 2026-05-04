@@ -29,4 +29,13 @@ public interface SqlExecutionLogRepository extends JpaRepository<SqlExecutionLog
           )
         """, nativeQuery = true)
     int trimHistoryForUser(@Param("email") String userEmail, @Param("keep") int keep);
+
+    @Modifying
+    @Transactional
+    int deleteByUserEmail(String userEmail);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM SqlExecutionLog s WHERE s.id = :id AND s.userEmail = :email")
+    int deleteByIdAndUserEmail(@Param("id") Long id, @Param("email") String email);
 }

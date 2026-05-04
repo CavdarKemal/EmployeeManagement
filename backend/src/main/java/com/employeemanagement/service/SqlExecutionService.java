@@ -160,6 +160,14 @@ public class SqlExecutionService {
         }
     }
 
+    public int deleteHistory(String userEmail) {
+        return logRepo.deleteByUserEmail(userEmail);
+    }
+
+    public boolean deleteHistoryEntry(String userEmail, Long id) {
+        return logRepo.deleteByIdAndUserEmail(id, userEmail) > 0;
+    }
+
     public List<SqlHistoryEntry> loadHistory(String userEmail, int limit) {
         int safeLimit = Math.min(Math.max(limit, 1), 500);
         return logRepo.findByUserEmailOrderByExecutedAtDesc(userEmail, PageRequest.of(0, safeLimit))

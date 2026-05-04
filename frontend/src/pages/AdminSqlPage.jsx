@@ -6,6 +6,51 @@ import { useTheme } from "../context/ThemeContext.jsx";
 
 const DESTRUCTIVE_PATTERN = /^\s*(DROP|TRUNCATE|DELETE\s+FROM\s+\w+\s*(WHERE\s+(true|1\s*=\s*1)\s*)?(;|\s*$))/i;
 
+/**
+ * Splittet SQL-Text in einzelne Statements anhand `;`. Respektiert single-quoted
+ * Strings (mit `''`-Escape), -- Zeilenkommentare und /* Block-Kommentare *​/.
+ * Liefert pro Statement {text, start, end} mit Char-Offsets im Original.
+ */
+function splitStatements(sql) {
+  const segments = [];
+  let i = 0, segStart = 0;
+  let inSingleQuote = false, inLineComment = false, inBlockComment = false;
+  while (i < sql.length) {
+    const c = sql[i], n = sql[i + 1];
+    if (inLineComment) { if (c === "\n") inLineComment = false; i++; continue; }
+    if (inBlockComment) { if (c === "*" && n === "/") { inBlockComment = false; i += 2; continue; } i++; continue; }
+    if (inSingleQuote) {
+      if (c === "'" && n === "'") { i += 2; continue; }
+      if (c === "'") inSingleQuote = false;
+      i++; continue;
+    }
+    if (c === "-" && n === "-") { inLineComment = true; i += 2; continue; }
+    if (c === "/" && n === "*") { inBlockComment = true; i += 2; continue; }
+    if (c === "'") { inSingleQuote = true; i++; continue; }
+    if (c === ";") {
+      segments.push({ text: sql.slice(segStart, i), start: segStart, end: i });
+      segStart = i + 1;
+      i++; continue;
+    }
+    i++;
+  }
+  if (segStart < sql.length) {
+    const tail = sql.slice(segStart);
+    if (tail.trim()) segments.push({ text: tail, start: segStart, end: sql.length });
+  }
+  return segments;
+}
+
+function findStatementAt(sql, cursorPos) {
+  const segs = splitStatements(sql);
+  if (segs.length === 0) return sql.trim();
+  // Cursor liegt in einem Segment, wenn start <= pos <= end. Bei genau auf `;` zählt das vorhergehende.
+  for (const s of segs) {
+    if (cursorPos >= s.start && cursorPos <= s.end) return s.text.trim();
+  }
+  return segs[segs.length - 1].text.trim();
+}
+
 export default function AdminSqlPage({ toast }) {
   const { t, mode } = useTheme();
   const [editorMode, setEditorMode]   = useState("read");        // "read" | "tx"
@@ -20,9 +65,24 @@ export default function AdminSqlPage({ toast }) {
   const [expandedTables, setExpandedTables] = useState({});
   const queryRef = useRef(query);
   queryRef.current = query;
+  const viewRef = useRef(null);
 
   const isTx = editorMode === "tx" && sessionId;
   const codeMirrorTheme = mode === "dark" ? "dark" : "light";
+
+  // CodeMirror-Schema-Format: { tableName: ["col1", "col2", ...] }
+  const schemaForCM = useMemo(() => {
+    const s = {};
+    for (const tbl of schema) s[tbl.name] = tbl.columns.map((c) => c.name);
+    return s;
+  }, [schema]);
+
+  // Extensions neu erzeugen, wenn das Schema sich ändert. CodeMirror reconfiguriert
+  // den Editor live, ohne State zu verlieren.
+  const cmExtensions = useMemo(
+    () => [sql({ dialect: PostgreSQL, schema: schemaForCM, upperCaseKeywords: true })],
+    [schemaForCM],
+  );
 
   // ── Schema beim Mounten laden ──
   useEffect(() => {
@@ -40,12 +100,20 @@ export default function AdminSqlPage({ toast }) {
 
   // ── Run ──
   const run = useCallback(async () => {
-    const q = queryRef.current.trim();
+    const fullText = queryRef.current;
+    if (!fullText.trim()) return;
+
+    // Cursor-Position des Editors holen, daraus das Statement an der Stelle extrahieren.
+    // Fallback: gesamter Text, falls View noch nicht gemountet.
+    const view = viewRef.current;
+    const cursor = view ? view.state.selection.main.head : fullText.length;
+    const q = findStatementAt(fullText, cursor);
     if (!q) return;
+
     if (DESTRUCTIVE_PATTERN.test(q)) {
       const ok = window.confirm(
         "WARNUNG: Diese Query enthält DROP/TRUNCATE oder DELETE ohne WHERE.\n\n" +
-        "Wirklich ausführen?"
+        "Wirklich ausführen?\n\n" + q
       );
       if (!ok) return;
     }
@@ -116,6 +184,27 @@ export default function AdminSqlPage({ toast }) {
       toast?.(e.message ?? String(e), "error");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // ── History-Delete ──
+  const deleteHistoryEntry = async (id) => {
+    try {
+      await sqlApi.deleteHistoryEntry(id);
+      setHistory((h) => h.filter((e) => e.id !== id));
+    } catch (e) {
+      toast?.(e.message ?? String(e), "error");
+    }
+  };
+
+  const clearAllHistory = async () => {
+    if (!window.confirm(`Komplette History (${history.length} Einträge) wirklich löschen?`)) return;
+    try {
+      await sqlApi.deleteHistory();
+      setHistory([]);
+      toast?.("History gelöscht.", "success");
+    } catch (e) {
+      toast?.(e.message ?? String(e), "error");
     }
   };
 
@@ -227,9 +316,10 @@ export default function AdminSqlPage({ toast }) {
               value={query}
               onChange={setQuery}
               theme={codeMirrorTheme}
-              extensions={[sql({ dialect: PostgreSQL })]}
+              extensions={cmExtensions}
               height="200px"
               basicSetup={{ lineNumbers: true, highlightActiveLine: true, foldGutter: false }}
+              onCreateEditor={(view) => { viewRef.current = view; }}
             />
           </div>
 
@@ -247,8 +337,9 @@ export default function AdminSqlPage({ toast }) {
                 : <div style={{ padding: 16, color: t.text }}>{result.message}</div>
             )}
             {!busy && !result && !error && (
-              <div style={{ padding: 16, color: t.textMuted, fontSize: 13 }}>
-                Tipp: <kbd style={kbdStyle}>Ctrl+Enter</kbd> führt die Query aus.
+              <div style={{ padding: 16, color: t.textMuted, fontSize: 13, lineHeight: 1.7 }}>
+                Tipp: <kbd style={kbdStyle}>Ctrl+Enter</kbd> führt die Query an der Cursor-Position aus.<br/>
+                Mehrere Queries durch <code>;</code> trennen, Cursor in die gewünschte Query setzen.<br/>
                 Im Read-Mode sind nur SELECTs erlaubt; für UPDATE/INSERT/DELETE in den Transaktions-Modus wechseln.
               </div>
             )}
@@ -258,17 +349,31 @@ export default function AdminSqlPage({ toast }) {
 
       {/* History */}
       <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12 }}>
-        <button
-          onClick={() => setHistoryOpen((o) => !o)}
-          style={{
-            width: "100%", textAlign: "left", padding: "10px 14px", border: "none",
-            background: "transparent", color: t.text, cursor: "pointer", fontSize: 13,
-            fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 8,
-          }}
-        >
-          <span style={{ opacity: 0.6 }}>{historyOpen ? "▼" : "▶"}</span>
-          History {historyOpen && `· ${history.length}`}
-        </button>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <button
+            onClick={() => setHistoryOpen((o) => !o)}
+            style={{
+              flex: 1, textAlign: "left", padding: "10px 14px", border: "none",
+              background: "transparent", color: t.text, cursor: "pointer", fontSize: 13,
+              fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 8,
+            }}
+          >
+            <span style={{ opacity: 0.6 }}>{historyOpen ? "▼" : "▶"}</span>
+            History {historyOpen && `· ${history.length}`}
+          </button>
+          {historyOpen && history.length > 0 && (
+            <button
+              onClick={clearAllHistory}
+              disabled={busy}
+              style={{
+                marginRight: 14, padding: "4px 10px", borderRadius: 6,
+                background: "transparent", color: "#fca5a5", border: "1px solid #ef4444",
+                fontSize: 12, cursor: busy ? "not-allowed" : "pointer",
+              }}
+              title="Komplette History löschen"
+            >Alle löschen</button>
+          )}
+        </div>
         {historyOpen && (
           <div style={{ maxHeight: 200, overflow: "auto", borderTop: `1px solid ${t.border}` }}>
             {history.length === 0 ? (
@@ -276,26 +381,43 @@ export default function AdminSqlPage({ toast }) {
             ) : history.map((h) => (
               <div
                 key={h.id}
-                onClick={() => setQuery(h.queryText)}
                 style={{
                   padding: "8px 14px", borderBottom: `1px solid ${t.border}`,
-                  cursor: "pointer", fontFamily: "monospace", fontSize: 12, color: t.text,
+                  fontFamily: "monospace", fontSize: 12, color: t.text,
+                  display: "flex", gap: 8, alignItems: "flex-start",
                 }}
-                title="In Editor übernehmen"
               >
-                <span style={{ color: h.errorMessage ? "#fca5a5" : t.textMuted, marginRight: 8 }}>
-                  [{h.queryType}]
-                </span>
-                <span style={{ color: t.textMuted, marginRight: 8 }}>
-                  {new Date(h.executedAt).toLocaleString("de-DE")}
-                </span>
-                <span style={{ color: t.textMuted }}>{h.execTimeMs}ms</span>
-                <div style={{ paddingTop: 2, opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {h.queryText}
+                <div
+                  onClick={() => setQuery(h.queryText)}
+                  style={{ flex: 1, cursor: "pointer", minWidth: 0 }}
+                  title="In Editor übernehmen"
+                >
+                  <span style={{ color: h.errorMessage ? "#fca5a5" : t.textMuted, marginRight: 8 }}>
+                    [{h.queryType}]
+                  </span>
+                  <span style={{ color: t.textMuted, marginRight: 8 }}>
+                    {new Date(h.executedAt).toLocaleString("de-DE")}
+                  </span>
+                  <span style={{ color: t.textMuted }}>{h.execTimeMs}ms</span>
+                  <div style={{ paddingTop: 2, opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {h.queryText}
+                  </div>
+                  {h.errorMessage && (
+                    <div style={{ paddingTop: 2, color: "#fca5a5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      ✗ {h.errorMessage}
+                    </div>
+                  )}
                 </div>
-                {h.errorMessage && (
-                  <div style={{ paddingTop: 2, color: "#fca5a5" }}>✗ {h.errorMessage}</div>
-                )}
+                <button
+                  onClick={() => deleteHistoryEntry(h.id)}
+                  disabled={busy}
+                  style={{
+                    width: 24, height: 24, borderRadius: 4, flexShrink: 0,
+                    background: "transparent", border: "none", color: t.textMuted,
+                    cursor: busy ? "not-allowed" : "pointer", fontSize: 14, lineHeight: 1,
+                  }}
+                  title="Diesen Eintrag löschen"
+                >×</button>
               </div>
             ))}
           </div>
