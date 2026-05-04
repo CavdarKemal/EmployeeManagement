@@ -8,3 +8,7 @@ data/
 # das globale .gitignore `.env.*` matcht.
 !.env.example
 !.env.local
+
+# Onboarding-Mail-Vorlage soll versioniert sein, obwohl das globale
+# .gitignore `*.txt` matcht.
+!onboarding-mail.txt

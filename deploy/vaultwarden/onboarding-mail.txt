@@ -1,0 +1,95 @@
+Betreff: Einladung zu unserem Firmen-Password-Manager (Bitte 10 Min Zeit nehmen)
+
+Hi {Vorname},
+
+ich habe dich gerade zu unserem neuen Firmen-Password-Manager eingeladen.
+Du solltest eine zweite Mail von „EmployeeManagement Vault" mit einem
+Einladungs-Link bekommen haben (ggf. im Spam-Ordner schauen).
+
+Worum geht's?
+Wir nutzen ab sofort einen eigenen, selbst betriebenen Password-Manager
+(Bitwarden-kompatibel), in dem du deine beruflichen Logins zentral und
+verschlüsselt speicherst — Browser, Handy, Desktop-App synchronisieren
+sich automatisch. Es gibt fünf gute Gründe:
+
+  • Für jede Seite ein anderes, langes, zufälliges Passwort
+    (statt überall „SommerKemal2025!").
+  • Login-Formulare werden per Klick automatisch ausgefüllt.
+  • Du musst dir nur noch ein einziges Passwort merken: dein Master-Passwort.
+  • Datenleck-Warnung: der Manager piept, wenn eines deiner Passwörter in
+    einem Hack auftaucht.
+  • Server steht in Deutschland, alles verschlüsselt — selbst ich als Admin
+    sehe deine Passwörter NICHT.
+
+
+===========================================================
+WICHTIG vorab — bitte einmal in Ruhe lesen:
+===========================================================
+
+Dein Master-Passwort ist der EINZIGE Schlüssel zu deinem Tresor. Es wird
+NIEMALS auf den Server übertragen — niemand außer dir kennt es. Konsequenz:
+
+  • Wähle ein Master-Passwort, das du NIRGENDWO sonst verwendest.
+  • Mindestens 14 Zeichen, gerne mehr. Eine eingängige Phrase wie
+    „blauer-Strom-summt-im-Keller-2025" ist besser als „K3mal!Pass".
+  • WENN DU ES VERLIERST, sind alle gespeicherten Passwörter weg —
+    auch ich kann es nicht zurücksetzen. Schreib es dir beim Anlegen
+    irgendwo offline auf (Notizbuch, das im Schrank liegt).
+  • Beim Master-Passwort-Hinweis (optional): nichts eintragen, was das
+    Passwort verraten würde. Der Hinweis kommt per Mail, falls du ihn
+    abrufst.
+
+
+===========================================================
+Schritt-für-Schritt
+===========================================================
+
+1. Einladungs-Link klicken
+   → Master-Passwort festlegen + bestätigen → Account ist aktiv.
+
+2. Im Browser einloggen, einmal umsehen
+   → https://vault.em.cavdar.de
+   → Mailadresse + Master-Passwort
+   → Du siehst einen leeren Tresor. Hier kannst du Einträge manuell anlegen
+     (du brauchst aber Schritt 3 für den täglichen Komfort).
+
+3. Browser-Extension installieren — DAS ist der Game-Changer:
+   • Chrome/Edge/Brave:
+     https://chromewebstore.google.com/detail/bitwarden-free-password-m/nngceckbapebfimnlniiiahkandclblb
+   • Firefox:
+     https://addons.mozilla.org/de/firefox/addon/bitwarden-password-manager/
+
+   Nach der Installation — und das ist wichtig, sonst geht's nicht:
+   a) Bitwarden-Icon (blauer Schild) in der Browserleiste anklicken
+   b) BEVOR du dich einloggst: oben rechts auf das Region-Auswahl-Feld
+      (zeigt „US" oder „EU") → auswählen: „Self-hosted"
+   c) Feld „Server URL" → eintragen:  https://vault.em.cavdar.de
+      (Mit https://, ohne Schrägstrich am Ende.)
+   d) Speichern → zurück → Mailadresse + Master-Passwort → einloggen.
+
+4. (Optional aber empfohlen) Mobile-App
+   • iOS:     https://apps.apple.com/de/app/bitwarden-password-manager/id1137397744
+   • Android: https://play.google.com/store/apps/details?id=com.x8bit.bitwarden
+   Genauso wie oben: vor dem Login → Region → „Self-hosted" → Server-URL
+   eintragen → einloggen → Auto-Fill und Biometrie aktivieren.
+
+
+===========================================================
+Täglicher Workflow
+===========================================================
+
+  • Auf irgendeiner Login-Seite: Bitwarden-Icon klicken → passender Eintrag
+    steht ganz oben → klicken → Felder gefüllt → „Anmelden".
+  • Beim Registrieren auf neuer Seite: Bitwarden bietet automatisch ein
+    starkes zufälliges Passwort an. Akzeptieren. Nach Speichern fragt die
+    Extension „Save login?" → Ja → Eintrag liegt im Tresor.
+  • Wenn du längere Zeit nicht aktiv warst, sperrt sich der Tresor — Master-
+    Passwort oder Biometrie zum Wieder-Entsperren. Frequenz in den
+    Einstellungen anpassbar.
+
+
+Bei Fragen, Problemen oder wenn etwas nicht klappt: einfach kurz
+zurückschreiben oder anrufen.
+
+Beste Grüße,
+Kemal
