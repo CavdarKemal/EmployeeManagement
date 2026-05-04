@@ -237,25 +237,40 @@ Vaultwarden verlangt seit Version 1.30+ einen **Argon2-Hash** statt
 Plain-Text-Tokens. Argon2 ist eine moderne Passwort-Hashing-Funktion, die
 gegen GPU-basierte Brute-Force-Angriffe resistent ist.
 
-So erzeugst du den Hash:
-
-```bash
-docker run --rm -it vaultwarden/server /vaultwarden hash
-```
-
-Das Tool fragt nach einem Passwort (zweimal). Wähle ein **wirklich starkes**
-Passwort (mind. 24 Zeichen, zufällig). Tipp:
+Wähle zuerst ein **wirklich starkes** Passwort (mind. 24 Zeichen, zufällig):
 
 ```bash
 openssl rand -base64 32
+# Beispiel-Output: wPezSR+0SOTrMpD5/5VcGEfZUHB1APPP6GbCf9C18ec=
 ```
 
-Das erzeugt einen zufälligen 32-Byte-String — den als Admin-Passwort verwenden.
+Aus dem Plain-Passwort einen Argon2id-Hash machen. **Zwei Wege**, je nach
+Umgebung:
 
-**Beispiel-Output:**
+**Variante 1 — Vaultwarden's eigenes Hash-Tool (verlangt ein TTY):**
+
+```bash
+docker run --rm -it vaultwarden/server /vaultwarden hash
+# fragt zweimal nach dem Passwort, gibt dann den Hash aus.
+```
+
+> **Achtung:** Bei einer SSH-Session **ohne** TTY (z.B. wenn ein Skript den
+> Befehl ausführt) panic't das Tool mit `No such device or address`. Dann
+> Variante 2 nehmen.
+
+**Variante 2 — argon2-CLI (funktioniert auch im Skript):**
+
+```bash
+apt install -y argon2     # einmalig, falls nicht installiert
+PLAIN="wPezSR+0SOTrMpD5/5VcGEfZUHB1APPP6GbCf9C18ec="
+SALT=$(openssl rand -base64 16)
+echo -n "$PLAIN" | argon2 "$SALT" -id -t 3 -k 65540 -p 4 -l 32 -e
+```
+
+Beide Varianten geben einen String dieser Form:
 
 ```
-ADMIN_TOKEN=$argon2id$v=19$m=65540,t=3,p=4$ZxzAm14dIWXhuCKqPmU0qg$gzjwzD...
+$argon2id$v=19$m=65540,t=3,p=4$ZxzAm14dIWXhuCKqPmU0qg$gzjwzD...
 ```
 
 **Zwei Werte aufschreiben** (am sichersten in den eigenen, neuen Vault,
@@ -264,7 +279,7 @@ sobald er läuft):
 | Was | Wofür |
 |-----|-------|
 | Das **Plain-Passwort** | Damit loggst du dich später ins `/admin`-Panel ein. |
-| Der **Argon2-Hash-String** (mit allen `$`-Zeichen) | Kommt in die `.env`. |
+| Der **Argon2-Hash-String** (mit allen `$`-Zeichen) | Kommt in die `.env` — siehe Schritt 4. |
 
 ---
 
@@ -276,11 +291,12 @@ cp .env.example .env
 nano .env
 ```
 
-Werte einsetzen:
+Werte einsetzen — **Achtung: jedes `$` im Hash als `$$` schreiben** (Erklärung
+direkt unter dem Block):
 
 ```env
 DOMAIN=https://vault.em.cavdar.de
-ADMIN_TOKEN=$argon2id$v=19$m=65540,t=3,p=4$DEIN_HASH_AUS_SCHRITT_3
+ADMIN_TOKEN=$$argon2id$$v=19$$m=65540,t=3,p=4$$DEIN_SALT$$DEIN_HASH
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURITY=starttls
@@ -294,12 +310,19 @@ Die **SMTP-Werte** sind dieselben wie in der EmployeeManagement-`.env`
 (siehe `DEPLOYMENT_VPS.md` Sektion „E-Mail-Benachrichtigungen einrichten").
 Ein Gmail-App-Passwort kann von beiden Diensten gleichzeitig genutzt werden.
 
-> **Wichtig — Argon2-Hash und Bash:** Der Hash enthält `$`-Zeichen. In
-> Bash-Skripten oder `eval`-Kontexten würden die als Variablen interpretiert.
-> In einer `.env`-Datei, die von Docker Compose gelesen wird, ist das **kein
-> Problem** — Docker Compose interpretiert nichts in den Werten. Falls du
-> den Wert doch mal in einer Bash-Subshell brauchst, in **einfache**
-> Anführungszeichen setzen.
+> **!!! Stolperstein — `$` muss als `$$` in der `.env` geschrieben werden:**
+> Docker Compose interpretiert `${...}` und `$VAR` in `.env`-Werten als
+> **Variable-Substitution**. Der Argon2-Hash beginnt mit `$argon2id$v=19$...`
+> — Compose liest `$argon2id`, `$v`, `$m` als (nicht definierte) Variablen,
+> ersetzt sie mit leeren Strings, und der Token kommt zerlegt im Container
+> an. Vaultwarden fällt dann auf Plain-Text-Auswertung zurück; im Container-Log
+> erscheint:
+> `[NOTICE] You are using a plain text ADMIN_TOKEN which is insecure.`
+> **Lösung:** Jedes einzelne `$` im Hash verdoppeln. Der Beispiel-Hash
+> `$argon2id$v=19$m=65540,t=3,p=4$SALT$HASH` wird zu
+> `$$argon2id$$v=19$$m=65540,t=3,p=4$$SALT$$HASH`. Im Admin-Panel-Login
+> später trotzdem das **Plain-Passwort** ohne Verdopplung eintippen — die
+> Verdopplung ist nur ein Compose-Escape.
 
 `.env` schützen:
 
@@ -643,6 +666,26 @@ das fehlschlägt:
 - Du hast den Hash falsch in `.env` eingetragen — manchmal verschluckt der
   Editor ein `$`. Lösung: gesamten String ist EINER, ohne Zeilenumbruch,
   ohne Anführungszeichen.
+
+### Container-Log zeigt „You are using a plain text ADMIN_TOKEN"
+
+Das `$`-Escape in `.env` fehlt. Docker Compose hat die Hash-Bestandteile
+als Variable-Refs (`$argon2id`, `$v`, `$m`, …) interpretiert und mit leeren
+Strings ersetzt — der Container sieht etwas wie `,t=3,p=4HASH` als Token.
+
+Symptome zusätzlich:
+```
+docker compose up -d
+WARN[0000] The "argon2id" variable is not set. Defaulting to a blank string.
+WARN[0000] The "v"        variable is not set. Defaulting to a blank string.
+WARN[0000] The "m"        variable is not set. Defaulting to a blank string.
+```
+
+**Fix:** In `/opt/vaultwarden/.env` jedes `$` im `ADMIN_TOKEN` zu `$$`
+verdoppeln, dann `docker compose down && docker compose up -d`. Verifizieren
+mit `docker compose logs vaultwarden | grep -i 'plain text'` — keine Treffer
+mehr. Das **Plain-Passwort** beim Login bleibt unverändert (kein `$$`-Escape
+dort).
 
 ### Web-Vault lädt, aber Login schlägt fehl mit „Server URL is invalid"
 
