@@ -281,6 +281,20 @@ sobald er läuft):
 | Das **Plain-Passwort** | Damit loggst du dich später ins `/admin`-Panel ein. |
 | Der **Argon2-Hash-String** (mit allen `$`-Zeichen) | Kommt in die `.env` — siehe Schritt 4. |
 
+> **Tipp — Token später rotieren:** Wenn du den Admin-Token irgendwann
+> wechseln willst (oder weil er kompromittiert wurde), nutze das Skript
+> `rotate-admin-token.sh` aus diesem Verzeichnis. Es generiert PW + Hash,
+> updatet die `.env` (mit `$$`-Escape), restartet den Container und
+> verifiziert serverseitig per Cookie-Test, dass der neue Token funktioniert.
+> Aufruf auf der VPS:
+> ```bash
+> sudo cp /opt/employeemanagement/deploy/vaultwarden/rotate-admin-token.sh /opt/vaultwarden/
+> sudo chmod +x /opt/vaultwarden/rotate-admin-token.sh
+> sudo bash /opt/vaultwarden/rotate-admin-token.sh
+> ```
+> Das neue Plain-PW landet in `/root/vw-admin-pw.txt` (chmod 600), nicht in
+> stdout. Nach dem Sichern in den Vault: `shred -u /root/vw-admin-pw.txt`.
+
 ---
 
 ## Schritt 4 — .env-Datei befüllen
