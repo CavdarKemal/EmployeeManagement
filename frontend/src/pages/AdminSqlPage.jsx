@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql, PostgreSQL } from "@codemirror/lang-sql";
+import { keymap } from "@codemirror/view";
 import { sqlApi } from "../api/sql.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 
@@ -77,10 +78,31 @@ export default function AdminSqlPage({ toast }) {
     return s;
   }, [schema]);
 
+  // Ref auf den aktuellen run-Closure — die Keymap wird einmal aufgesetzt,
+  // muss aber den aktuellen isTx/sessionId-Stand lesen.
+  const runQueryRef = useRef(null);
+
   // Extensions neu erzeugen, wenn das Schema sich ändert. CodeMirror reconfiguriert
-  // den Editor live, ohne State zu verlieren.
+  // den Editor live, ohne State zu verlieren. Ctrl+Enter ist als Editor-Keymap
+  // gebunden — so kommt der Cursor garantiert frisch aus dem View.
   const cmExtensions = useMemo(
-    () => [sql({ dialect: PostgreSQL, schema: schemaForCM, upperCaseKeywords: true })],
+    () => [
+      sql({ dialect: PostgreSQL, schema: schemaForCM, upperCaseKeywords: true }),
+      keymap.of([
+        {
+          key: "Ctrl-Enter",
+          mac: "Cmd-Enter",
+          preventDefault: true,
+          run: (view) => {
+            const cursor = view.state.selection.main.head;
+            const text = view.state.doc.toString();
+            const q = findStatementAt(text, cursor);
+            runQueryRef.current?.(q);
+            return true;
+          },
+        },
+      ]),
+    ],
     [schemaForCM],
   );
 
@@ -99,21 +121,13 @@ export default function AdminSqlPage({ toast }) {
   }, [historyOpen, result]);
 
   // ── Run ──
-  const run = useCallback(async () => {
-    const fullText = queryRef.current;
-    if (!fullText.trim()) return;
-
-    // Cursor-Position des Editors holen, daraus das Statement an der Stelle extrahieren.
-    // Fallback: gesamter Text, falls View noch nicht gemountet.
-    const view = viewRef.current;
-    const cursor = view ? view.state.selection.main.head : fullText.length;
-    const q = findStatementAt(fullText, cursor);
-    if (!q) return;
-
+  // Variante 1: Direkt mit gegebener Query (vom Keymap aufgerufen).
+  const runQuery = useCallback(async (q) => {
+    if (!q?.trim()) return;
     if (DESTRUCTIVE_PATTERN.test(q)) {
       const ok = window.confirm(
         "WARNUNG: Diese Query enthält DROP/TRUNCATE oder DELETE ohne WHERE.\n\n" +
-        "Wirklich ausführen?\n\n" + q
+        "Wirklich ausführen?\n\n" + q,
       );
       if (!ok) return;
     }
@@ -132,17 +146,16 @@ export default function AdminSqlPage({ toast }) {
     }
   }, [isTx, sessionId]);
 
-  // ── Ctrl+Enter Hotkey ──
-  useEffect(() => {
-    const h = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        run();
-      }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [run]);
+  // Aktuellen Closure für die Keymap verfügbar halten.
+  runQueryRef.current = runQuery;
+
+  // Variante 2: Vom Toolbar-Button — extrahiert Statement vor dem Run.
+  const run = useCallback(() => {
+    const view = viewRef.current;
+    const text = view ? view.state.doc.toString() : queryRef.current;
+    const cursor = view ? view.state.selection.main.head : text.length;
+    runQuery(findStatementAt(text, cursor));
+  }, [runQuery]);
 
   // ── TX-Lifecycle ──
   const beginTx = async () => {
