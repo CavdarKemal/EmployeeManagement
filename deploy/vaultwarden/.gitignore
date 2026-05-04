@@ -1,0 +1,10 @@
+# .env enthält den echten ADMIN_TOKEN-Hash + SMTP-Passwort — nie committen.
+.env
+
+# data/ ist die SQLite-DB des Vaults — bleibt lokal/auf der VPS.
+data/
+
+# Templates und der Local-Test-Override sollen ins Repo, obwohl
+# das globale .gitignore `.env.*` matcht.
+!.env.example
+!.env.local

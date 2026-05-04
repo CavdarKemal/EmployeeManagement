@@ -1,0 +1,21 @@
+# Override für LOKALE Tests — niemals in Produktion verwenden.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local up -d
+#
+# Unterschiede zu Prod:
+#  - Plaintext-ADMIN_TOKEN (keine Argon2-Hash-Pflicht in dev erforderlich)
+#  - SIGNUPS_ALLOWED=true, damit Test-User ohne Mail-Setup angelegt werden kann
+#  - SMTP_* werden auf Dummy-Werte gestellt; Mail-Versand schlägt fehl, ist aber egal
+#  - kein Healthcheck-Restart, schnellere Iteration
+
+services:
+  vaultwarden:
+    container_name: vaultwarden-local
+    environment:
+      DOMAIN:              http://localhost:8222
+      SIGNUPS_ALLOWED:     "true"
+      SMTP_HOST:           localhost
+      SMTP_FROM:           test@local.invalid
+      SMTP_USERNAME:       test
+      SMTP_PASSWORD:       test
+    restart: "no"
